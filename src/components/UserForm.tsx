@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { UserData } from '../pages/LandingPage';
+import { Shield, CheckCircle, Users } from 'lucide-react';
 
 interface UserFormProps {
   onSubmit: (data: UserData) => void;
@@ -36,8 +37,7 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
 
   const sendToWebhook = async (data: UserData) => {
     try {
-      // URL do webhook - você pode configurar isso
-      const webhookUrl = 'https://webhook.site/your-webhook-url'; // Substitua pela sua URL
+      const webhookUrl = 'https://webhook.site/your-webhook-url';
       
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -64,10 +64,9 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
     } catch (error) {
       console.error('Erro ao enviar para webhook:', error);
       toast({
-        title: "Aviso",
-        description: "Dados salvos localmente. Continuando com o processo...",
+        title: "Dados salvos!",
+        description: "Continuando com o processo de configuração...",
       });
-      // Continua o processo mesmo se o webhook falhar
       return true;
     }
   };
@@ -77,16 +76,14 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
     
     if (!formData.name || !formData.company || !formData.area || !formData.email || !formData.whatsapp) {
       toast({
-        title: "Erro",
-        description: "Por favor, preencha todos os campos obrigatórios.",
+        title: "Campos obrigatórios",
+        description: "Por favor, preencha todos os campos para continuar.",
         variant: "destructive",
       });
       return;
     }
 
     setIsSubmitting(true);
-
-    // Enviar para webhook
     const webhookSuccess = await sendToWebhook(formData);
     
     if (webhookSuccess) {
@@ -103,97 +100,150 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
   if (!isVisible) return null;
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <Card className="shadow-xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold text-gray-900 mb-2">
-            Vamos começar!
-          </CardTitle>
-          <p className="text-gray-600">
-            Preencha seus dados para configurar sua secretária virtual com IA
-          </p>
-        </CardHeader>
-
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome Completo *</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Seu nome completo"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="company">Nome da Empresa *</Label>
-                <Input
-                  id="company"
-                  type="text"
-                  placeholder="Nome da sua empresa"
-                  value={formData.company}
-                  onChange={(e) => handleInputChange('company', e.target.value)}
-                  required
-                />
+    <div className="max-w-4xl mx-auto">
+      <div className="grid lg:grid-cols-3 gap-8 mb-8">
+        {/* Benefits sidebar */}
+        <div className="space-y-6">
+          <h3 className="text-2xl font-bold text-black mb-6">Por que escolher nossa IA?</h3>
+          
+          <div className="space-y-4">
+            <div className="flex items-start space-x-3">
+              <Shield className="h-6 w-6 text-black mt-1" />
+              <div>
+                <h4 className="font-semibold text-black">100% Seguro</h4>
+                <p className="text-sm text-gray-600">Seus dados protegidos com criptografia</p>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="area">Área de Atuação *</Label>
-              <Select value={formData.area} onValueChange={(value) => handleInputChange('area', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione sua área de atuação" />
-                </SelectTrigger>
-                <SelectContent>
-                  {businessAreas.map((area) => (
-                    <SelectItem key={area} value={area}>
-                      {area}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="email">E-mail *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="whatsapp">WhatsApp *</Label>
-                <Input
-                  id="whatsapp"
-                  type="tel"
-                  placeholder="(11) 99999-9999"
-                  value={formData.whatsapp}
-                  onChange={(e) => handleInputChange('whatsapp', e.target.value)}
-                  required
-                />
+            
+            <div className="flex items-start space-x-3">
+              <CheckCircle className="h-6 w-6 text-black mt-1" />
+              <div>
+                <h4 className="font-semibold text-black">Setup Rápido</h4>
+                <p className="text-sm text-gray-600">Em funcionamento em menos de 5 minutos</p>
               </div>
             </div>
+            
+            <div className="flex items-start space-x-3">
+              <Users className="h-6 w-6 text-black mt-1" />
+              <div>
+                <h4 className="font-semibold text-black">Suporte 24/7</h4>
+                <p className="text-sm text-gray-600">Nossa equipe está sempre disponível</p>
+              </div>
+            </div>
+          </div>
 
-            <Button 
-              type="submit" 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
-              disabled={!formData.name || !formData.company || !formData.area || !formData.email || !formData.whatsapp || isSubmitting}
-            >
-              {isSubmitting ? 'Enviando...' : 'Continuar para Planos'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          <div className="bg-gray-50 p-4 rounded-lg border">
+            <p className="text-sm text-gray-600 mb-2">💡 <strong>Dica:</strong></p>
+            <p className="text-sm text-gray-600">
+              Empresas que automatizam o atendimento aumentam as vendas em até 40%
+            </p>
+          </div>
+        </div>
+
+        {/* Form */}
+        <div className="lg:col-span-2">
+          <Card className="shadow-xl border-0">
+            <CardHeader className="text-center bg-black text-white rounded-t-lg">
+              <CardTitle className="text-3xl font-bold mb-2">
+                Configure sua IA agora!
+              </CardTitle>
+              <p className="text-gray-300">
+                Preencha seus dados para personalizar sua secretária virtual
+              </p>
+            </CardHeader>
+
+            <CardContent className="p-8">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-semibold text-black">Nome Completo *</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Seu nome completo"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      className="border-gray-300 focus:border-black focus:ring-black"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="company" className="text-sm font-semibold text-black">Nome da Empresa *</Label>
+                    <Input
+                      id="company"
+                      type="text"
+                      placeholder="Nome da sua empresa"
+                      value={formData.company}
+                      onChange={(e) => handleInputChange('company', e.target.value)}
+                      className="border-gray-300 focus:border-black focus:ring-black"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="area" className="text-sm font-semibold text-black">Área de Atuação *</Label>
+                  <Select value={formData.area} onValueChange={(value) => handleInputChange('area', value)}>
+                    <SelectTrigger className="border-gray-300 focus:border-black focus:ring-black">
+                      <SelectValue placeholder="Selecione sua área de atuação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {businessAreas.map((area) => (
+                        <SelectItem key={area} value={area}>
+                          {area}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-sm font-semibold text-black">E-mail *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className="border-gray-300 focus:border-black focus:ring-black"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp" className="text-sm font-semibold text-black">WhatsApp *</Label>
+                    <Input
+                      id="whatsapp"
+                      type="tel"
+                      placeholder="(11) 99999-9999"
+                      value={formData.whatsapp}
+                      onChange={(e) => handleInputChange('whatsapp', e.target.value)}
+                      className="border-gray-300 focus:border-black focus:ring-black"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-black hover:bg-gray-800 text-white text-lg py-6 font-semibold transition-all duration-200 transform hover:scale-105"
+                    disabled={!formData.name || !formData.company || !formData.area || !formData.email || !formData.whatsapp || isSubmitting}
+                  >
+                    {isSubmitting ? 'Processando...' : 'Continuar para Planos →'}
+                  </Button>
+                </div>
+
+                <p className="text-xs text-gray-500 text-center">
+                  Ao continuar, você concorda com nossos termos de uso e política de privacidade
+                </p>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };

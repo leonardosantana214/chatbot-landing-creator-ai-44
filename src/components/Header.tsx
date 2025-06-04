@@ -19,13 +19,13 @@ const Header = ({ onNavigate, onCTAClick }: HeaderProps) => {
   ];
 
   return (
-    <header className="bg-white shadow-lg fixed w-full top-0 z-50">
+    <header className="bg-white shadow-lg fixed w-full top-0 z-50 border-b border-gray-200">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center space-x-2">
-            <Bot className="h-8 w-8 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900">IA Secretary</span>
+            <Bot className="h-8 w-8 text-black" />
+            <span className="text-xl font-bold text-black">IA Secretary</span>
           </div>
 
           {/* Desktop Menu */}
@@ -34,7 +34,7 @@ const Header = ({ onNavigate, onCTAClick }: HeaderProps) => {
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+                className="text-gray-700 hover:text-black transition-colors font-medium"
               >
                 {item.label}
               </button>
@@ -43,7 +43,7 @@ const Header = ({ onNavigate, onCTAClick }: HeaderProps) => {
 
           {/* CTA Button */}
           <div className="hidden md:block">
-            <Button onClick={onCTAClick} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={onCTAClick} className="bg-black text-white hover:bg-gray-800 px-6 py-2">
               Comece Agora
             </Button>
           </div>
@@ -59,7 +59,7 @@ const Header = ({ onNavigate, onCTAClick }: HeaderProps) => {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 border-t">
+          <div className="md:hidden py-4 border-t border-gray-200 bg-white">
             <nav className="flex flex-col space-y-3">
               {menuItems.map((item) => (
                 <button
@@ -68,12 +68,12 @@ const Header = ({ onNavigate, onCTAClick }: HeaderProps) => {
                     onNavigate(item.id);
                     setIsMenuOpen(false);
                   }}
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium text-left"
+                  className="text-gray-700 hover:text-black transition-colors font-medium text-left"
                 >
                   {item.label}
                 </button>
               ))}
-              <Button onClick={onCTAClick} className="bg-blue-600 hover:bg-blue-700 mt-4">
+              <Button onClick={onCTAClick} className="bg-black text-white hover:bg-gray-800 mt-4">
                 Comece Agora
               </Button>
             </nav>
