@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 import { UserData } from '../pages/LandingPage';
 
 interface UserFormProps {
@@ -15,6 +16,8 @@ interface UserFormProps {
 
 const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
   const [formData, setFormData] = useState<UserData>(initialData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
   const businessAreas = [
     'Saúde e Medicina',
@@ -31,11 +34,66 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
     'Outros'
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const sendToWebhook = async (data: UserData) => {
+    try {
+      // URL do webhook - você pode configurar isso
+      const webhookUrl = 'https://webhook.site/your-webhook-url'; // Substitua pela sua URL
+      
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...data,
+          timestamp: new Date().toISOString(),
+          source: 'IA Secretary Landing Page'
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Dados enviados para webhook com sucesso:', data);
+        toast({
+          title: "Sucesso!",
+          description: "Seus dados foram enviados com sucesso.",
+        });
+        return true;
+      } else {
+        throw new Error('Falha ao enviar dados para o webhook');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar para webhook:', error);
+      toast({
+        title: "Aviso",
+        description: "Dados salvos localmente. Continuando com o processo...",
+      });
+      // Continua o processo mesmo se o webhook falhar
+      return true;
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.name && formData.company && formData.area && formData.email && formData.whatsapp) {
+    
+    if (!formData.name || !formData.company || !formData.area || !formData.email || !formData.whatsapp) {
+      toast({
+        title: "Erro",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    // Enviar para webhook
+    const webhookSuccess = await sendToWebhook(formData);
+    
+    if (webhookSuccess) {
       onSubmit(formData);
     }
+
+    setIsSubmitting(false);
   };
 
   const handleInputChange = (field: keyof UserData, value: string) => {
@@ -129,9 +187,9 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
             <Button 
               type="submit" 
               className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
-              disabled={!formData.name || !formData.company || !formData.area || !formData.email || !formData.whatsapp}
+              disabled={!formData.name || !formData.company || !formData.area || !formData.email || !formData.whatsapp || isSubmitting}
             >
-              Continuar para Planos
+              {isSubmitting ? 'Enviando...' : 'Continuar para Planos'}
             </Button>
           </form>
         </CardContent>
