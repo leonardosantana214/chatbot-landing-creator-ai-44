@@ -1,12 +1,19 @@
 
 import { Bot, MessageCircle, Sparkles, CheckCircle, Clock, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 interface HeroProps {
   onCTAClick: () => void;
 }
 
 const Hero = ({ onCTAClick }: HeroProps) => {
+  const navigate = useNavigate();
+
+  const handleDemoClick = () => {
+    navigate('/demo');
+  };
+
   return (
     <section className="pt-20 pb-16 bg-white min-h-screen flex items-center">
       <div className="container mx-auto px-4">
@@ -16,7 +23,7 @@ const Hero = ({ onCTAClick }: HeroProps) => {
             <div className="space-y-6">
               <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-full text-sm font-medium text-gray-800 mb-4">
                 <Bot className="h-4 w-4 mr-2" />
-                Revolucione seu atendimento com IA
+                Revolucione seu atendimento with IA
               </div>
               
               <h1 className="text-4xl md:text-6xl font-bold text-black leading-tight">
@@ -67,10 +74,11 @@ const Hero = ({ onCTAClick }: HeroProps) => {
               
               <Button 
                 variant="outline" 
+                onClick={handleDemoClick}
                 className="border-2 border-black text-black hover:bg-black hover:text-white px-8 py-4 text-lg font-semibold transition-all duration-200"
                 size="lg"
               >
-                Ver Demonstração
+                Experimentar Demo
               </Button>
             </div>
 

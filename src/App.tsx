@@ -8,6 +8,9 @@ import { AuthProvider } from "./contexts/AuthContext";
 import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
+import DemoPage from "./pages/DemoPage";
+import ChatbotSetup from "./pages/ChatbotSetup";
+import PricingSelection from "./pages/PricingSelection";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -23,9 +26,20 @@ const App = () => (
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/demo" element={<DemoPage />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/chatbot-setup" element={
+              <ProtectedRoute>
+                <ChatbotSetup />
+              </ProtectedRoute>
+            } />
+            <Route path="/pricing-selection" element={
+              <ProtectedRoute>
+                <PricingSelection />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
