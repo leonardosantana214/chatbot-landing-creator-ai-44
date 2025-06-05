@@ -12,6 +12,11 @@ import DemoPage from "./pages/DemoPage";
 import ChatbotSetup from "./pages/ChatbotSetup";
 import PricingSelection from "./pages/PricingSelection";
 import WhatsAppIntegration from "./pages/WhatsAppIntegration";
+import Payment from "./pages/Payment";
+import CompanyInfo from "./pages/CompanyInfo";
+import Contacts from "./pages/Contacts";
+import Chats from "./pages/Chats";
+import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -28,9 +33,25 @@ const App = () => (
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/demo" element={<DemoPage />} />
+            <Route path="/company-info" element={<CompanyInfo />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/contacts" element={
+              <ProtectedRoute>
+                <Contacts />
+              </ProtectedRoute>
+            } />
+            <Route path="/chats" element={
+              <ProtectedRoute>
+                <Chats />
+              </ProtectedRoute>
+            } />
+            <Route path="/messages" element={
+              <ProtectedRoute>
+                <Messages />
               </ProtectedRoute>
             } />
             <Route path="/chatbot-setup" element={
@@ -41,6 +62,11 @@ const App = () => (
             <Route path="/pricing-selection" element={
               <ProtectedRoute>
                 <PricingSelection />
+              </ProtectedRoute>
+            } />
+            <Route path="/payment" element={
+              <ProtectedRoute>
+                <Payment />
               </ProtectedRoute>
             } />
             <Route path="/whatsapp-integration" element={

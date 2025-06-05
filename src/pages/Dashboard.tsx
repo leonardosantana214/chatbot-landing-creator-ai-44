@@ -4,8 +4,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, LogOut, MessageCircle, Settings, User, BarChart3, Calendar, Phone, TrendingUp } from 'lucide-react';
+import { Loader2, LogOut, MessageCircle, Settings, User, BarChart3, Calendar, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import DashboardTabs from '../components/DashboardTabs';
 
 interface DashboardStats {
   totalMessages: number;
@@ -29,61 +30,6 @@ const Dashboard = () => {
     appointmentsToday: 8,
     messagesTrend: 15.2
   });
-
-  const recentMessages = [
-    {
-      id: 1,
-      customer: 'Maria Silva',
-      message: 'Gostaria de agendar uma consulta',
-      time: '10:30',
-      status: 'responded'
-    },
-    {
-      id: 2,
-      customer: 'João Santos',
-      message: 'Qual o valor da consulta?',
-      time: '10:15',
-      status: 'responded'
-    },
-    {
-      id: 3,
-      customer: 'Ana Costa',
-      message: 'Preciso reagendar minha consulta',
-      time: '09:45',
-      status: 'pending'
-    },
-    {
-      id: 4,
-      customer: 'Pedro Lima',
-      message: 'Obrigado pelo atendimento!',
-      time: '09:30',
-      status: 'closed'
-    }
-  ];
-
-  const upcomingAppointments = [
-    {
-      id: 1,
-      customer: 'Maria Silva',
-      service: 'Consulta Médica',
-      time: '14:00',
-      phone: '(11) 99999-9999'
-    },
-    {
-      id: 2,
-      customer: 'Carlos Oliveira',
-      service: 'Retorno',
-      time: '15:30',
-      phone: '(11) 88888-8888'
-    },
-    {
-      id: 3,
-      customer: 'Ana Santos',
-      service: 'Exame',
-      time: '16:00',
-      phone: '(11) 77777-7777'
-    }
-  ];
 
   const handleSignOut = async () => {
     try {
@@ -127,14 +73,22 @@ const Dashboard = () => {
               />
               <h1 className="text-xl font-bold text-black">Dashboard - Techcorps</h1>
             </div>
-            <Button
-              variant="outline"
-              onClick={handleSignOut}
-              className="flex items-center space-x-2"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>Sair</span>
-            </Button>
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/company-info')}
+              >
+                Sobre a Empresa
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleSignOut}
+                className="flex items-center space-x-2"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sair</span>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -199,127 +153,37 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Profile Info */}
-          <div className="lg:col-span-1 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <User className="h-5 w-5" />
-                  <span>Meu Perfil</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+        {/* Chatbot Status */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <MessageCircle className="h-5 w-5" />
+              <span>Status do Chatbot</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 <div>
-                  <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-medium">{user?.email}</p>
+                  <p className="font-medium text-green-800">Chatbot Ativo</p>
+                  <p className="text-sm text-green-600">Funcionando perfeitamente • Última atividade: há 2 minutos</p>
                 </div>
-                <Button className="w-full" variant="outline">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Editar Perfil
-                </Button>
-              </CardContent>
-            </Card>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={handleConfigureChatbot}
+                className="border-green-300 text-green-700 hover:bg-green-100"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Configurar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-            {/* Upcoming Appointments */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Calendar className="h-5 w-5" />
-                  <span>Próximos Agendamentos</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {upcomingAppointments.map((appointment) => (
-                    <div key={appointment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-sm">{appointment.customer}</p>
-                        <p className="text-xs text-gray-600">{appointment.service}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">{appointment.time}</p>
-                        <p className="text-xs text-gray-600">{appointment.phone}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Main Content Area */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Recent Messages */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <MessageCircle className="h-5 w-5" />
-                  <span>Mensagens Recentes</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentMessages.map((message) => (
-                    <div key={message.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <p className="font-medium">{message.customer}</p>
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            message.status === 'responded' ? 'bg-green-100 text-green-800' :
-                            message.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {message.status === 'responded' ? 'Respondido' :
-                             message.status === 'pending' ? 'Pendente' : 'Finalizado'}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">{message.message}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">{message.time}</p>
-                        {message.status === 'pending' && (
-                          <Button size="sm" className="mt-2 bg-[#FF914C] hover:bg-[#FF7A2B]">
-                            Responder
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Chatbot Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <MessageCircle className="h-5 w-5" />
-                  <span>Status do Chatbot</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <div>
-                      <p className="font-medium text-green-800">Chatbot Ativo</p>
-                      <p className="text-sm text-green-600">Funcionando perfeitamente • Última atividade: há 2 minutos</p>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    onClick={handleConfigureChatbot}
-                    className="border-green-300 text-green-700 hover:bg-green-100"
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Configurar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        {/* Dashboard Tabs */}
+        <DashboardTabs />
       </main>
     </div>
   );

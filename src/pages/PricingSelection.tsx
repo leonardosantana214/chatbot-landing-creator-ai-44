@@ -56,12 +56,18 @@ const PricingSelection = () => {
     }
   ];
 
-  const handlePlanSelect = (planName: string) => {
-    setSelectedPlan(planName);
-    // Simular processo de pagamento/ativação
-    setTimeout(() => {
-      navigate('/whatsapp-integration');
-    }, 1000);
+  const handlePlanSelect = (plan: any) => {
+    setSelectedPlan(plan.name);
+    // Redirecionar para página de pagamento
+    navigate('/payment', { 
+      state: { 
+        plan: {
+          name: plan.name,
+          price: plan.annualPrice,
+          features: plan.features
+        }
+      } 
+    });
   };
 
   return (
@@ -159,19 +165,14 @@ const PricingSelection = () => {
                 </ul>
 
                 <Button
-                  onClick={() => handlePlanSelect(plan.name)}
+                  onClick={() => handlePlanSelect(plan)}
                   className={`w-full ${
                     plan.popular
                       ? 'bg-[#FF914C] hover:bg-[#FF7A2B]'
                       : 'bg-gray-900 hover:bg-gray-800'
-                  } ${
-                    selectedPlan === plan.name
-                      ? 'bg-green-600 hover:bg-green-700'
-                      : ''
                   }`}
-                  disabled={selectedPlan === plan.name}
                 >
-                  {selectedPlan === plan.name ? 'Ativando...' : 'Selecionar Plano'}
+                  Selecionar Plano
                 </Button>
               </CardContent>
             </Card>

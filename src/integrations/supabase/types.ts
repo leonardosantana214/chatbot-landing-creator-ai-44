@@ -9,7 +9,197 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      chatbot_configs: {
+        Row: {
+          bot_name: string
+          created_at: string
+          evo_instance_id: string | null
+          evo_token: string | null
+          id: string
+          is_active: boolean | null
+          phone_number: string | null
+          service_type: string
+          tone: string
+          updated_at: string
+          user_id: string
+          webhook_url: string | null
+        }
+        Insert: {
+          bot_name: string
+          created_at?: string
+          evo_instance_id?: string | null
+          evo_token?: string | null
+          id?: string
+          is_active?: boolean | null
+          phone_number?: string | null
+          service_type: string
+          tone: string
+          updated_at?: string
+          user_id: string
+          webhook_url?: string | null
+        }
+        Update: {
+          bot_name?: string
+          created_at?: string
+          evo_instance_id?: string | null
+          evo_token?: string | null
+          id?: string
+          is_active?: boolean | null
+          phone_number?: string | null
+          service_type?: string
+          tone?: string
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
+      chats: {
+        Row: {
+          contact_id: string
+          created_at: string
+          id: string
+          last_message_at: string | null
+          status: string | null
+          unread_count: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          status?: string | null
+          unread_count?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          status?: string | null
+          unread_count?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chats_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contacts: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_blocked: boolean | null
+          last_interaction: string | null
+          name: string
+          notes: string | null
+          phone: string
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+          whatsapp_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_blocked?: boolean | null
+          last_interaction?: string | null
+          name: string
+          notes?: string | null
+          phone: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+          whatsapp_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_blocked?: boolean | null
+          last_interaction?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+          whatsapp_id?: string | null
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          chat_id: string
+          contact_id: string
+          content: string
+          created_at: string
+          direction: string
+          id: string
+          message_type: string | null
+          metadata: Json | null
+          status: string | null
+          user_id: string
+          whatsapp_message_id: string | null
+        }
+        Insert: {
+          chat_id: string
+          contact_id: string
+          content: string
+          created_at?: string
+          direction: string
+          id?: string
+          message_type?: string | null
+          metadata?: Json | null
+          status?: string | null
+          user_id: string
+          whatsapp_message_id?: string | null
+        }
+        Update: {
+          chat_id?: string
+          contact_id?: string
+          content?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          message_type?: string | null
+          metadata?: Json | null
+          status?: string | null
+          user_id?: string
+          whatsapp_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
