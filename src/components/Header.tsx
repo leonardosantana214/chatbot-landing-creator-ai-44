@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Menu, X, Bot } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface HeaderProps {
@@ -23,9 +23,13 @@ const Header = ({ onNavigate, onCTAClick }: HeaderProps) => {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
-            <Bot className="h-8 w-8 text-black" />
-            <span className="text-xl font-bold text-black">IA Secretary</span>
+          <div className="flex items-center space-x-3">
+            <img 
+              src="/lovable-uploads/0cf142c2-da7d-452c-a8d8-0413cfb6c023.png" 
+              alt="Techcorps Logo" 
+              className="h-10 w-10"
+            />
+            <span className="text-xl font-bold text-black">Techcorps</span>
           </div>
 
           {/* Desktop Menu */}

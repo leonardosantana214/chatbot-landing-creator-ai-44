@@ -54,12 +54,12 @@ const HowItWorks = () => {
               
               <div className="relative mb-8">
                 {/* Step Number */}
-                <div className="absolute -top-4 -right-4 w-12 h-12 bg-black text-white rounded-full flex items-center justify-center font-bold text-lg z-20">
+                <div className="absolute -top-4 -right-4 w-12 h-12 bg-[#FF914C] text-white rounded-full flex items-center justify-center font-bold text-lg z-20">
                   {step.step}
                 </div>
                 
                 {/* Icon Container */}
-                <div className="w-24 h-24 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center mx-auto group-hover:border-black group-hover:bg-black transition-all duration-300 shadow-lg">
+                <div className="w-24 h-24 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center mx-auto group-hover:border-[#FF914C] group-hover:bg-[#FF914C] transition-all duration-300 shadow-lg">
                   <step.icon className="h-12 w-12 text-black group-hover:text-white transition-colors duration-300" />
                 </div>
               </div>
@@ -88,7 +88,7 @@ const HowItWorks = () => {
           <div className="bg-black text-white p-8 rounded-2xl max-w-2xl mx-auto">
             <h3 className="text-2xl font-bold mb-4">Pronto para começar?</h3>
             <p className="text-gray-300 mb-6">Junte-se a mais de 500 empresas que já automatizaram seu atendimento</p>
-            <button className="bg-white text-black px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors duration-200">
+            <button className="bg-[#FF914C] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#e8823e] transition-colors duration-200">
               Iniciar Configuração Gratuita
             </button>
           </div>
