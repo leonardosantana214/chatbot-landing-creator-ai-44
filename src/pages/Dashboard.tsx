@@ -1,18 +1,11 @@
+
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, LogOut, MessageCircle, Settings, User, BarChart3, Calendar, Phone, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-interface UserProfile {
-  name: string;
-  company: string;
-  area: string;
-  whatsapp: string;
-}
 
 interface DashboardStats {
   totalMessages: number;
@@ -27,8 +20,7 @@ const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalMessages: 1247,
     activeConversations: 23,
@@ -93,32 +85,6 @@ const Dashboard = () => {
     }
   ];
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-    }
-  }, [user]);
-
-  const fetchProfile = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('name, company, area, whatsapp')
-        .eq('id', user?.id)
-        .single();
-
-      if (error) {
-        console.error('Erro ao buscar perfil:', error);
-      } else {
-        setProfile(data);
-      }
-    } catch (error) {
-      console.error('Erro:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -159,7 +125,7 @@ const Dashboard = () => {
                 alt="Techcorps" 
                 className="h-8 w-auto"
               />
-              <h1 className="text-xl font-bold text-black">Dashboard - IA Secretary</h1>
+              <h1 className="text-xl font-bold text-black">Dashboard - Techcorps</h1>
             </div>
             <Button
               variant="outline"
@@ -245,24 +211,8 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <p className="text-sm text-gray-600">Nome</p>
-                  <p className="font-medium">{profile?.name || 'Não informado'}</p>
-                </div>
-                <div>
                   <p className="text-sm text-gray-600">Email</p>
                   <p className="font-medium">{user?.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Empresa</p>
-                  <p className="font-medium">{profile?.company || 'Não informado'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Área de Atuação</p>
-                  <p className="font-medium">{profile?.area || 'Não informado'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">WhatsApp</p>
-                  <p className="font-medium">{profile?.whatsapp || 'Não informado'}</p>
                 </div>
                 <Button className="w-full" variant="outline">
                   <Settings className="h-4 w-4 mr-2" />

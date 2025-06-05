@@ -60,7 +60,7 @@ const PricingSelection = () => {
     setSelectedPlan(planName);
     // Simular processo de pagamento/ativação
     setTimeout(() => {
-      navigate('/dashboard');
+      navigate('/whatsapp-integration');
     }, 1000);
   };
 

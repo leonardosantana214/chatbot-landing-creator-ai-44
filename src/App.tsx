@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import DemoPage from "./pages/DemoPage";
 import ChatbotSetup from "./pages/ChatbotSetup";
 import PricingSelection from "./pages/PricingSelection";
+import WhatsAppIntegration from "./pages/WhatsAppIntegration";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -40,6 +41,11 @@ const App = () => (
             <Route path="/pricing-selection" element={
               <ProtectedRoute>
                 <PricingSelection />
+              </ProtectedRoute>
+            } />
+            <Route path="/whatsapp-integration" element={
+              <ProtectedRoute>
+                <WhatsAppIntegration />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

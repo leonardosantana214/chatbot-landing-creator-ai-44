@@ -69,9 +69,17 @@ const LandingPage = () => {
     navigate('/auth');
   };
 
+  const handleDemoClick = () => {
+    navigate('/demo');
+  };
+
   return (
     <div className="min-h-screen bg-white">
-      <Header onNavigate={scrollToSection} onCTAClick={showForm} />
+      <Header 
+        onNavigate={scrollToSection} 
+        onCTAClick={showForm} 
+        onDemoClick={handleDemoClick}
+      />
       
       <main>
         <Hero onCTAClick={showForm} />

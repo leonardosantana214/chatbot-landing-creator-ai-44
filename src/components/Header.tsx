@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 interface HeaderProps {
   onNavigate: (sectionId: string) => void;
   onCTAClick: () => void;
+  onDemoClick?: () => void;
 }
 
-const Header = ({ onNavigate, onCTAClick }: HeaderProps) => {
+const Header = ({ onNavigate, onCTAClick, onDemoClick }: HeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const menuItems = [
@@ -45,8 +46,17 @@ const Header = ({ onNavigate, onCTAClick }: HeaderProps) => {
             ))}
           </nav>
 
-          {/* CTA Button */}
-          <div className="hidden md:block">
+          {/* CTA Buttons */}
+          <div className="hidden md:flex space-x-3">
+            {onDemoClick && (
+              <Button 
+                onClick={onDemoClick} 
+                variant="outline"
+                className="border-[#FF914C] text-[#FF914C] hover:bg-[#FF914C] hover:text-white px-6 py-2"
+              >
+                Experimentar demonstração
+              </Button>
+            )}
             <Button onClick={onCTAClick} className="bg-black text-white hover:bg-gray-800 px-6 py-2">
               Comece Agora
             </Button>
@@ -77,6 +87,18 @@ const Header = ({ onNavigate, onCTAClick }: HeaderProps) => {
                   {item.label}
                 </button>
               ))}
+              {onDemoClick && (
+                <Button 
+                  onClick={() => {
+                    onDemoClick();
+                    setIsMenuOpen(false);
+                  }}
+                  variant="outline"
+                  className="border-[#FF914C] text-[#FF914C] hover:bg-[#FF914C] hover:text-white mt-4"
+                >
+                  Experimentar demonstração
+                </Button>
+              )}
               <Button onClick={onCTAClick} className="bg-black text-white hover:bg-gray-800 mt-4">
                 Comece Agora
               </Button>
