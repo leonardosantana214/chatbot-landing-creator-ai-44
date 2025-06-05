@@ -1,341 +1,171 @@
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  MessageSquare, 
-  Users, 
-  Clock, 
-  CheckCircle, 
-  BarChart3, 
-  Settings, 
-  LogOut,
-  Bot,
-  Phone,
-  Calendar,
-  TrendingUp,
-  Activity,
-  DollarSign,
-  Download
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, LogOut, MessageCircle, Settings, User } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+interface UserProfile {
+  name: string;
+  company: string;
+  area: string;
+  whatsapp: string;
+}
 
 const Dashboard = () => {
-  const navigate = useNavigate();
-  const [stats] = useState({
-    totalMessages: 1247,
-    activeChats: 23,
-    responseTime: '1.2s',
-    satisfaction: 94,
-    conversions: 156,
-    revenue: 28750
-  });
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const [recentChats] = useState([
-    { id: 1, name: 'Maria Silva', lastMessage: 'Obrigada pelo atendimento!', time: '2 min', status: 'online', avatar: 'MS' },
-    { id: 2, name: 'João Santos', lastMessage: 'Qual o horário de funcionamento?', time: '5 min', status: 'waiting', avatar: 'JS' },
-    { id: 3, name: 'Ana Costa', lastMessage: 'Gostaria de agendar uma consulta', time: '10 min', status: 'resolved', avatar: 'AC' },
-    { id: 4, name: 'Pedro Lima', lastMessage: 'Vocês trabalham aos sábados?', time: '15 min', status: 'online', avatar: 'PL' },
-    { id: 5, name: 'Carla Mendes', lastMessage: 'Preciso alterar meu agendamento', time: '22 min', status: 'waiting', avatar: 'CM' },
-  ]);
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'online': return 'bg-green-500';
-      case 'waiting': return 'bg-yellow-500';
-      case 'resolved': return 'bg-blue-500';
-      default: return 'bg-gray-500';
+  const fetchProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('name, company, area, whatsapp')
+        .eq('id', user?.id)
+        .single();
+
+      if (error) {
+        console.error('Erro ao buscar perfil:', error);
+      } else {
+        setProfile(data);
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'online': return 'Online';
-      case 'waiting': return 'Aguardando';
-      case 'resolved': return 'Resolvido';
-      default: return 'Offline';
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Logout realizado",
+        description: "Você foi desconectado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro no logout",
+        description: "Ocorreu um erro ao fazer logout.",
+        variant: "destructive",
+      });
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="px-6 py-4">
+      <header className="bg-white shadow-sm border-b">
+        <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <Bot className="h-8 w-8 text-black" />
-                <div>
-                  <h1 className="text-2xl font-bold text-black">IA Secretary</h1>
-                  <p className="text-sm text-gray-600">Dashboard de Controle</p>
-                </div>
-              </div>
-            </div>
-            
             <div className="flex items-center space-x-4">
-              <Badge className="bg-green-100 text-green-800 border border-green-200">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                Sistema Online
-              </Badge>
-              
-              <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 hover:bg-gray-50">
-                <Settings className="h-4 w-4 mr-2" />
-                Configurações
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate('/')}
-                className="border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
-              </Button>
+              <img 
+                src="/lovable-uploads/0cf142c2-da7d-452c-a8d8-0413cfb6c023.png" 
+                alt="Techcorps" 
+                className="h-8 w-auto"
+              />
+              <h1 className="text-xl font-bold text-black">Techcorps Dashboard</h1>
             </div>
+            <Button
+              variant="outline"
+              onClick={handleSignOut}
+              className="flex items-center space-x-2"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sair</span>
+            </Button>
           </div>
         </div>
       </header>
 
-      <div className="p-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Mensagens Hoje</CardTitle>
-              <MessageSquare className="h-4 w-4 text-black" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-black">{stats.totalMessages.toLocaleString()}</div>
-              <p className="text-xs text-green-600 flex items-center">
-                <TrendingUp className="inline h-3 w-3 mr-1" />
-                +12% vs ontem
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Chats Ativos</CardTitle>
-              <Users className="h-4 w-4 text-black" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-black">{stats.activeChats}</div>
-              <p className="text-xs text-yellow-600">
-                3 aguardando resposta
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Tempo Resposta</CardTitle>
-              <Clock className="h-4 w-4 text-black" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-black">{stats.responseTime}</div>
-              <p className="text-xs text-gray-500">
-                Média das últimas 24h
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Satisfação</CardTitle>
-              <CheckCircle className="h-4 w-4 text-black" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-black">{stats.satisfaction}%</div>
-              <p className="text-xs text-gray-500">
-                156 avaliações
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Conversões</CardTitle>
-              <Activity className="h-4 w-4 text-black" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-black">{stats.conversions}</div>
-              <p className="text-xs text-green-600">
-                +8% esta semana
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Receita</CardTitle>
-              <DollarSign className="h-4 w-4 text-black" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-black">R$ {stats.revenue.toLocaleString()}</div>
-              <p className="text-xs text-green-600">
-                +15% este mês
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Chats */}
-          <Card className="lg:col-span-2 border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center text-black">
-                <MessageSquare className="h-5 w-5 mr-2" />
-                Conversas Recentes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentChats.map((chat) => (
-                  <div key={chat.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center font-semibold">
-                        {chat.avatar}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-black">{chat.name}</p>
-                        <p className="text-sm text-gray-600 truncate max-w-xs">{chat.lastMessage}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500 mb-1">{chat.time}</p>
-                      <Badge 
-                        className={`${getStatusColor(chat.status)} text-white text-xs`}
-                      >
-                        {getStatusText(chat.status)}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="mt-6 pt-4 border-t border-gray-200">
-                <Button className="w-full bg-black text-white hover:bg-gray-800">
-                  Ver Todas as Conversas
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions & System Status */}
-          <div className="space-y-6">
-            {/* Quick Actions */}
-            <Card className="border-0 shadow-lg">
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Profile Info */}
+          <div className="lg:col-span-1">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center text-black">
-                  <BarChart3 className="h-5 w-5 mr-2" />
-                  Ações Rápidas
+                <CardTitle className="flex items-center space-x-2">
+                  <User className="h-5 w-5" />
+                  <span>Meu Perfil</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <Button className="w-full justify-start bg-black text-white hover:bg-gray-800">
-                  <Download className="h-4 w-4 mr-2" />
-                  Gerar Relatório
-                </Button>
-                
-                <Button className="w-full justify-start" variant="outline">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Ver Agendamentos
-                </Button>
-                
-                <Button className="w-full justify-start" variant="outline">
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600">Nome</p>
+                  <p className="font-medium">{profile?.name || 'Não informado'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Email</p>
+                  <p className="font-medium">{user?.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Empresa</p>
+                  <p className="font-medium">{profile?.company || 'Não informado'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Área de Atuação</p>
+                  <p className="font-medium">{profile?.area || 'Não informado'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">WhatsApp</p>
+                  <p className="font-medium">{profile?.whatsapp || 'Não informado'}</p>
+                </div>
+                <Button className="w-full" variant="outline">
                   <Settings className="h-4 w-4 mr-2" />
-                  Configurar IA
-                </Button>
-                
-                <Button className="w-full justify-start" variant="outline">
-                  <Phone className="h-4 w-4 mr-2" />
-                  Suporte
+                  Editar Perfil
                 </Button>
               </CardContent>
             </Card>
+          </div>
 
-            {/* System Status */}
-            <Card className="border-0 shadow-lg">
+          {/* Chatbot Area */}
+          <div className="lg:col-span-2">
+            <Card className="h-[600px]">
               <CardHeader>
-                <CardTitle className="text-black">Status do Sistema</CardTitle>
+                <CardTitle className="flex items-center space-x-2">
+                  <MessageCircle className="h-5 w-5" />
+                  <span>Sua IA Secretary</span>
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">WhatsApp API</span>
-                    <Badge className="bg-green-100 text-green-800 text-xs">Online</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Servidor IA</span>
-                    <Badge className="bg-green-100 text-green-800 text-xs">Online</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Banco de Dados</span>
-                    <Badge className="bg-green-100 text-green-800 text-xs">Online</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Evolution API</span>
-                    <Badge className="bg-green-100 text-green-800 text-xs">Conectado</Badge>
-                  </div>
-                </div>
-                
-                <Separator className="my-4" />
-                
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 mb-2">Última atualização: há 2 min</p>
-                  <Button size="sm" variant="outline" className="text-xs">
-                    Verificar Status
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Performance Today */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-black">Performance Hoje</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">Taxa de Resposta</span>
-                      <span className="font-medium text-black">98%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-black h-2 rounded-full" style={{ width: '98%' }}></div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">Satisfação Cliente</span>
-                      <span className="font-medium text-black">94%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '94%' }}></div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">Conversões</span>
-                      <span className="font-medium text-black">87%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-500 h-2 rounded-full" style={{ width: '87%' }}></div>
-                    </div>
+              <CardContent className="h-full">
+                <div className="h-full bg-gray-50 rounded-lg flex items-center justify-center">
+                  <div className="text-center space-y-4">
+                    <MessageCircle className="h-16 w-16 text-gray-400 mx-auto" />
+                    <h3 className="text-lg font-semibold text-gray-700">
+                      Seu Chatbot IA está sendo configurado
+                    </h3>
+                    <p className="text-gray-600 max-w-md">
+                      Em breve você terá acesso à sua secretária virtual personalizada para {profile?.area}.
+                    </p>
+                    <Button className="bg-[#FF914C] hover:bg-[#FF7A2B] text-white">
+                      Finalizar Configuração
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

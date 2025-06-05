@@ -1,5 +1,7 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
 import Hero from '../components/Hero';
 import HowItWorks from '../components/HowItWorks';
@@ -17,6 +19,8 @@ export interface UserData {
 }
 
 const LandingPage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<'hero' | 'form' | 'plans' | 'connection'>('hero');
   const [userData, setUserData] = useState<UserData>({
     name: '',
@@ -26,6 +30,13 @@ const LandingPage = () => {
     whatsapp: ''
   });
   const [selectedPlan, setSelectedPlan] = useState<string>('');
+
+  // Redirecionar usuários autenticados para o dashboard
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleFormSubmit = (data: UserData) => {
     setUserData(data);
@@ -42,11 +53,8 @@ const LandingPage = () => {
     setSelectedPlan(planName);
     console.log('Plano selecionado:', planName);
     
-    if (userData.name && userData.email) {
-      setCurrentStep('connection');
-    } else {
-      setCurrentStep('form');
-    }
+    // Redirecionar para página de autenticação
+    navigate('/auth');
   };
 
   const scrollToSection = (sectionId: string) => {
@@ -57,8 +65,8 @@ const LandingPage = () => {
   };
 
   const showForm = () => {
-    setCurrentStep('form');
-    scrollToSection('form-section');
+    // Redirecionar para página de autenticação
+    navigate('/auth');
   };
 
   return (
