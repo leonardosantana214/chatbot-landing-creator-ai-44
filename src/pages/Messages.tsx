@@ -1,13 +1,12 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, MessageSquare, Send, ArrowUpCircle, ArrowDownCircle, Filter } from 'lucide-react';
+import { Search, MessageSquare, ArrowUpCircle, ArrowDownCircle, Filter } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -46,7 +45,21 @@ const Messages = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMessages(data || []);
+      
+      // Garantir que os dados estejam no formato correto
+      const typedMessages: Message[] = (data || []).map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        direction: msg.direction as 'inbound' | 'outbound',
+        status: msg.status,
+        created_at: msg.created_at,
+        contact: {
+          name: msg.contact?.name || 'Contato',
+          phone: msg.contact?.phone || 'Telefone não informado'
+        }
+      }));
+      
+      setMessages(typedMessages);
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
       // Usar dados mock se não houver dados reais

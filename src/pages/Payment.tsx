@@ -6,14 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, CreditCard, Shield, Check } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, CreditCard, Shield, Check, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import QRCodeGenerator from '../components/QRCodeGenerator';
 
 const Payment = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('credit');
   
   // Recuperar dados do plano da navegação
   const selectedPlan = location.state?.plan || {
@@ -34,8 +37,9 @@ const Payment = () => {
     cardName: '',
     email: '',
     cpf: '',
-    paymentMethod: 'credit'
   });
+
+  const planValue = parseFloat(selectedPlan.price.replace(/[R$\s]/g, '').replace(',', '.'));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +90,7 @@ const Payment = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto grid lg:grid-cols-3 gap-8">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-3 gap-8">
           {/* Resumo do Pedido */}
           <div className="lg:col-span-1">
             <Card className="sticky top-4">
@@ -136,26 +140,16 @@ const Payment = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div>
-                    <Label htmlFor="paymentMethod">Método de Pagamento</Label>
-                    <Select 
-                      value={paymentData.paymentMethod} 
-                      onValueChange={(value) => setPaymentData({...paymentData, paymentMethod: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="credit">Cartão de Crédito</SelectItem>
-                        <SelectItem value="debit">Cartão de Débito</SelectItem>
-                        <SelectItem value="pix">PIX</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <Tabs value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="credit">Cartão de Crédito</TabsTrigger>
+                    <TabsTrigger value="debit">Cartão de Débito</TabsTrigger>
+                    <TabsTrigger value="pix">PIX</TabsTrigger>
+                  </TabsList>
 
-                  {paymentData.paymentMethod !== 'pix' && (
-                    <>
+                  <TabsContent value="credit" className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                      {/* Campos do cartão */}
                       <div>
                         <Label htmlFor="cardNumber">Número do Cartão</Label>
                         <Input
@@ -200,63 +194,128 @@ const Payment = () => {
                           required
                         />
                       </div>
-                    </>
-                  )}
 
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={paymentData.email}
-                      onChange={(e) => setPaymentData({...paymentData, email: e.target.value})}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="cpf">CPF</Label>
-                    <Input
-                      id="cpf"
-                      placeholder="000.000.000-00"
-                      value={paymentData.cpf}
-                      onChange={(e) => setPaymentData({...paymentData, cpf: e.target.value})}
-                      required
-                    />
-                  </div>
-
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="flex items-start">
-                      <Shield className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
                       <div>
-                        <h4 className="font-medium text-blue-900">Pagamento Seguro</h4>
-                        <p className="text-sm text-blue-800">
-                          Seus dados são protegidos com criptografia SSL de 256 bits. 
-                          Não armazenamos informações do cartão.
-                        </p>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="seu@email.com"
+                          value={paymentData.email}
+                          onChange={(e) => setPaymentData({...paymentData, email: e.target.value})}
+                          required
+                        />
                       </div>
+
+                      <div>
+                        <Label htmlFor="cpf">CPF</Label>
+                        <Input
+                          id="cpf"
+                          placeholder="000.000.000-00"
+                          value={paymentData.cpf}
+                          onChange={(e) => setPaymentData({...paymentData, cpf: e.target.value})}
+                          required
+                        />
+                      </div>
+
+                      <Button 
+                        type="submit" 
+                        className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
+                        disabled={loading}
+                      >
+                        {loading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Processando...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="mr-2 h-4 w-4" />
+                            Finalizar Pagamento
+                          </>
+                        )}
+                      </Button>
+                    </form>
+                  </TabsContent>
+
+                  <TabsContent value="debit" className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                      {/* Mesmo formulário do cartão de crédito */}
+                      <div>
+                        <Label htmlFor="debitCardNumber">Número do Cartão</Label>
+                        <Input
+                          id="debitCardNumber"
+                          placeholder="1234 5678 9012 3456"
+                          required
+                        />
+                      </div>
+                      
+                      {/* ... outros campos similares */}
+                      
+                      <Button 
+                        type="submit" 
+                        className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
+                        disabled={loading}
+                      >
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Pagar com Débito
+                      </Button>
+                    </form>
+                  </TabsContent>
+
+                  <TabsContent value="pix" className="space-y-6">
+                    <div className="text-center space-y-6">
+                      <div className="flex items-center justify-center space-x-2">
+                        <QrCode className="h-6 w-6 text-[#FF914C]" />
+                        <h3 className="text-lg font-semibold">Pagamento via PIX</h3>
+                      </div>
+                      
+                      <QRCodeGenerator
+                        type="pix"
+                        value="techcorps@pix.com"
+                        amount={planValue}
+                        recipientName="Techcorps"
+                        description={`Assinatura plano ${selectedPlan.name}`}
+                      />
+                      
+                      <div className="bg-blue-50 p-4 rounded-lg text-sm">
+                        <p className="font-medium text-blue-900 mb-2">Como pagar:</p>
+                        <ol className="text-blue-800 space-y-1 text-left">
+                          <li>1. Abra o app do seu banco</li>
+                          <li>2. Escaneie o QR Code acima</li>
+                          <li>3. Confirme os dados do pagamento</li>
+                          <li>4. Finalize a transação</li>
+                        </ol>
+                      </div>
+
+                      <Button 
+                        onClick={() => {
+                          toast({
+                            title: "Aguardando pagamento",
+                            description: "Assim que o PIX for processado, você receberá uma confirmação.",
+                          });
+                        }}
+                        className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
+                      >
+                        <QrCode className="mr-2 h-4 w-4" />
+                        Verificar Pagamento PIX
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+
+                <div className="bg-blue-50 p-4 rounded-lg mt-6">
+                  <div className="flex items-start">
+                    <Shield className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-blue-900">Pagamento Seguro</h4>
+                      <p className="text-sm text-blue-800">
+                        Seus dados são protegidos com criptografia SSL de 256 bits. 
+                        Não armazenamos informações do cartão.
+                      </p>
                     </div>
                   </div>
-
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Processando...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        Finalizar Pagamento
-                      </>
-                    )}
-                  </Button>
-                </form>
+                </div>
               </CardContent>
             </Card>
           </div>

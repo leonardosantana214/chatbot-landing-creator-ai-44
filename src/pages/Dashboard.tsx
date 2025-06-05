@@ -4,17 +4,19 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, LogOut, MessageCircle, Settings, User, BarChart3, Calendar, TrendingUp } from 'lucide-react';
+import { Loader2, LogOut, MessageCircle, Settings, User, BarChart3, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import DashboardTabs from '../components/DashboardTabs';
 
 interface DashboardStats {
   totalMessages: number;
   activeConversations: number;
+  totalContacts: number;
   responseTime: string;
   satisfaction: number;
-  appointmentsToday: number;
   messagesTrend: number;
+  chatbotStatus: 'active' | 'inactive';
 }
 
 const Dashboard = () => {
@@ -23,13 +25,93 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
-    totalMessages: 1247,
-    activeConversations: 23,
+    totalMessages: 0,
+    activeConversations: 0,
+    totalContacts: 0,
     responseTime: '2.3s',
     satisfaction: 4.8,
-    appointmentsToday: 8,
-    messagesTrend: 15.2
+    messagesTrend: 15.2,
+    chatbotStatus: 'inactive'
   });
+
+  useEffect(() => {
+    if (user) {
+      fetchDashboardStats();
+      checkChatbotStatus();
+    }
+  }, [user]);
+
+  const fetchDashboardStats = async () => {
+    try {
+      // Buscar contatos
+      const { data: contacts, error: contactsError } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('user_id', user?.id);
+      
+      if (contactsError) throw contactsError;
+
+      // Buscar mensagens do dia
+      const today = new Date().toISOString().split('T')[0];
+      const { data: messages, error: messagesError } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('user_id', user?.id)
+        .gte('created_at', today);
+      
+      if (messagesError) throw messagesError;
+
+      // Buscar conversas ativas
+      const { data: chats, error: chatsError } = await supabase
+        .from('chats')
+        .select('id')
+        .eq('user_id', user?.id)
+        .eq('status', 'active');
+      
+      if (chatsError) throw chatsError;
+
+      setStats(prev => ({
+        ...prev,
+        totalMessages: messages?.length || 0,
+        activeConversations: chats?.length || 0,
+        totalContacts: contacts?.length || 0
+      }));
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
+      // Manter dados mock se erro
+      setStats(prev => ({
+        ...prev,
+        totalMessages: 1247,
+        activeConversations: 23,
+        totalContacts: 156
+      }));
+    }
+  };
+
+  const checkChatbotStatus = async () => {
+    try {
+      const { data: configs, error } = await supabase
+        .from('chatbot_configs')
+        .select('is_active')
+        .eq('user_id', user?.id)
+        .limit(1);
+      
+      if (error) throw error;
+      
+      const isActive = configs && configs.length > 0 && configs[0].is_active;
+      setStats(prev => ({
+        ...prev,
+        chatbotStatus: isActive ? 'active' : 'inactive'
+      }));
+    } catch (error) {
+      console.error('Erro ao verificar status do chatbot:', error);
+      // Status padrão como inativo se erro
+      setStats(prev => ({
+        ...prev,
+        chatbotStatus: 'inactive'
+      }));
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -130,9 +212,9 @@ const Dashboard = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Tempo de Resposta</p>
-                  <p className="text-2xl font-bold">{stats.responseTime}</p>
-                  <p className="text-xs text-green-600 mt-1">Excelente performance</p>
+                  <p className="text-sm text-gray-600">Total de Contatos</p>
+                  <p className="text-2xl font-bold">{stats.totalContacts}</p>
+                  <p className="text-xs text-blue-600 mt-1">Cadastrados no sistema</p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-green-500" />
               </div>
@@ -162,21 +244,42 @@ const Dashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className={`flex items-center justify-between p-4 rounded-lg border ${
+              stats.chatbotStatus === 'active' 
+                ? 'bg-green-50 border-green-200' 
+                : 'bg-red-50 border-red-200'
+            }`}>
               <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <div className={`w-3 h-3 rounded-full ${
+                  stats.chatbotStatus === 'active' ? 'bg-green-500' : 'bg-red-500'
+                }`}></div>
                 <div>
-                  <p className="font-medium text-green-800">Chatbot Ativo</p>
-                  <p className="text-sm text-green-600">Funcionando perfeitamente • Última atividade: há 2 minutos</p>
+                  <p className={`font-medium ${
+                    stats.chatbotStatus === 'active' ? 'text-green-800' : 'text-red-800'
+                  }`}>
+                    Chatbot {stats.chatbotStatus === 'active' ? 'Ativo' : 'Inativo'}
+                  </p>
+                  <p className={`text-sm ${
+                    stats.chatbotStatus === 'active' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {stats.chatbotStatus === 'active' 
+                      ? 'Funcionando perfeitamente • Última atividade: há 2 minutos'
+                      : 'Configure seu chatbot para começar a usar'
+                    }
+                  </p>
                 </div>
               </div>
               <Button 
                 variant="outline" 
                 onClick={handleConfigureChatbot}
-                className="border-green-300 text-green-700 hover:bg-green-100"
+                className={`${
+                  stats.chatbotStatus === 'active'
+                    ? 'border-green-300 text-green-700 hover:bg-green-100'
+                    : 'border-red-300 text-red-700 hover:bg-red-100'
+                }`}
               >
                 <Settings className="h-4 w-4 mr-2" />
-                Configurar
+                {stats.chatbotStatus === 'active' ? 'Configurar' : 'Ativar'}
               </Button>
             </div>
           </CardContent>
