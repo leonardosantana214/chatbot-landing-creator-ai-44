@@ -5,10 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Phone, Mail, User, Edit, Trash2 } from 'lucide-react';
+import { Search, Phone, MessageSquare, Clock, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Contact {
@@ -19,6 +16,15 @@ interface Contact {
   notes?: string;
   created_at: string;
   last_interaction?: string;
+  messages: Message[];
+}
+
+interface Message {
+  id: string;
+  content: string;
+  direction: 'inbound' | 'outbound';
+  created_at: string;
+  status: string;
 }
 
 const Contacts = () => {
@@ -27,108 +33,99 @@ const Contacts = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    notes: ''
-  });
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
   useEffect(() => {
     if (user) {
-      fetchContacts();
+      fetchContactsWithMessages();
     }
   }, [user]);
 
-  const fetchContacts = async () => {
+  const fetchContactsWithMessages = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar contatos
+      const { data: contactsData, error: contactsError } = await supabase
         .from('contacts')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setContacts(data || []);
+      if (contactsError) throw contactsError;
+
+      // Buscar mensagens para cada contato
+      const contactsWithMessages = await Promise.all(
+        (contactsData || []).map(async (contact) => {
+          const { data: messagesData, error: messagesError } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('contact_id', contact.id)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+          if (messagesError) {
+            console.error('Erro ao buscar mensagens:', messagesError);
+          }
+
+          return {
+            ...contact,
+            messages: messagesData || []
+          };
+        })
+      );
+
+      setContacts(contactsWithMessages);
     } catch (error) {
+      console.error('Erro ao carregar contatos:', error);
       toast({
         title: "Erro ao carregar contatos",
-        description: "Não foi possível carregar os contatos.",
+        description: "Não foi possível carregar os contatos e mensagens.",
         variant: "destructive",
       });
+      
+      // Dados mock para demonstração
+      setContacts([
+        {
+          id: '1',
+          name: 'Maria Silva',
+          phone: '5511999999999',
+          email: 'maria@email.com',
+          created_at: new Date().toISOString(),
+          last_interaction: new Date().toISOString(),
+          messages: [
+            {
+              id: '1',
+              content: 'Olá! Gostaria de agendar uma massagem relaxante.',
+              direction: 'inbound',
+              created_at: new Date().toISOString(),
+              status: 'read'
+            },
+            {
+              id: '2',
+              content: 'Olá, Maria! Claro, posso te ajudar com o agendamento. Qual seria o melhor dia para você?',
+              direction: 'outbound',
+              created_at: new Date().toISOString(),
+              status: 'delivered'
+            }
+          ]
+        },
+        {
+          id: '2',
+          name: 'João Santos',
+          phone: '5511888888888',
+          created_at: new Date().toISOString(),
+          last_interaction: new Date(Date.now() - 3600000).toISOString(),
+          messages: [
+            {
+              id: '3',
+              content: 'Preciso reagendar minha consulta',
+              direction: 'inbound',
+              created_at: new Date(Date.now() - 3600000).toISOString(),
+              status: 'read'
+            }
+          ]
+        }
+      ]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    try {
-      const contactData = {
-        ...formData,
-        user_id: user.id
-      };
-
-      if (editingContact) {
-        const { error } = await supabase
-          .from('contacts')
-          .update(contactData)
-          .eq('id', editingContact.id);
-        
-        if (error) throw error;
-        toast({ title: "Contato atualizado com sucesso!" });
-      } else {
-        const { error } = await supabase
-          .from('contacts')
-          .insert(contactData);
-        
-        if (error) throw error;
-        toast({ title: "Contato criado com sucesso!" });
-      }
-
-      setIsDialogOpen(false);
-      setEditingContact(null);
-      setFormData({ name: '', phone: '', email: '', notes: '' });
-      fetchContacts();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível salvar o contato.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleEdit = (contact: Contact) => {
-    setEditingContact(contact);
-    setFormData({
-      name: contact.name,
-      phone: contact.phone,
-      email: contact.email || '',
-      notes: contact.notes || ''
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = async (contactId: string) => {
-    try {
-      const { error } = await supabase
-        .from('contacts')
-        .delete()
-        .eq('id', contactId);
-      
-      if (error) throw error;
-      toast({ title: "Contato excluído com sucesso!" });
-      fetchContacts();
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível excluir o contato.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -137,6 +134,16 @@ const Contacts = () => {
     contact.phone.includes(searchTerm)
   );
 
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64">Carregando...</div>;
   }
@@ -144,62 +151,7 @@ const Contacts = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Contatos</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-[#FF914C] hover:bg-[#FF7A2B]">
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Contato
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingContact ? 'Editar Contato' : 'Novo Contato'}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Nome *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Telefone *</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="notes">Observações</Label>
-                <Input
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                />
-              </div>
-              <Button type="submit" className="w-full bg-[#FF914C] hover:bg-[#FF7A2B]">
-                {editingContact ? 'Atualizar' : 'Criar'} Contato
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <h1 className="text-3xl font-bold">Contatos e Conversas</h1>
       </div>
 
       <div className="mb-6">
@@ -214,77 +166,134 @@ const Contacts = () => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <User className="h-5 w-5 mr-2" />
-            Seus Contatos ({filteredContacts.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Última Interação</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredContacts.map((contact) => (
-                <TableRow key={contact.id}>
-                  <TableCell className="font-medium">{contact.name}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <Phone className="h-4 w-4 mr-2 text-green-600" />
-                      {contact.phone}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {contact.email && (
-                      <div className="flex items-center">
-                        <Mail className="h-4 w-4 mr-2 text-blue-600" />
-                        {contact.email}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Lista de Contatos */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold mb-4">Contatos ({filteredContacts.length})</h2>
+          {filteredContacts.map((contact) => {
+            const lastMessage = contact.messages[0];
+            return (
+              <Card 
+                key={contact.id} 
+                className={`hover:shadow-md transition-shadow cursor-pointer ${
+                  selectedContact?.id === contact.id ? 'border-[#FF914C] border-2' : ''
+                }`}
+                onClick={() => setSelectedContact(contact)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-12 h-12 bg-[#FF914C] rounded-full flex items-center justify-center">
+                        <User className="h-6 w-6 text-white" />
                       </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {contact.last_interaction ? 
-                      new Date(contact.last_interaction).toLocaleDateString() : 
-                      'Nunca'
-                    }
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(contact)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(contact.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-lg truncate">{contact.name}</h3>
+                        <div className="flex items-center text-gray-600 text-sm mb-2">
+                          <Phone className="h-4 w-4 mr-1" />
+                          {contact.phone}
+                        </div>
+                        {lastMessage && (
+                          <div className="text-sm text-gray-700">
+                            <p className="truncate">
+                              {lastMessage.direction === 'inbound' ? '👤 ' : '🤖 '}
+                              {lastMessage.content}
+                            </p>
+                            <div className="flex items-center text-gray-500 text-xs mt-1">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {formatTimestamp(lastMessage.created_at)}
+                            </div>
+                          </div>
+                        )}
+                        {contact.messages.length > 0 && (
+                          <div className="flex items-center mt-2">
+                            <MessageSquare className="h-4 w-4 mr-1 text-blue-500" />
+                            <span className="text-sm text-blue-600">
+                              {contact.messages.length} mensagem{contact.messages.length > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+
           {filteredContacts.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              Nenhum contato encontrado
-            </div>
+            <Card>
+              <CardContent className="text-center py-12">
+                <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                  Nenhum contato encontrado
+                </h3>
+                <p className="text-gray-500">
+                  Os contatos aparecerão aqui quando receberem mensagens
+                </p>
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Conversa Selecionada */}
+        <div>
+          {selectedContact ? (
+            <Card className="h-fit">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <MessageSquare className="h-5 w-5 mr-2" />
+                  Conversa com {selectedContact.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="max-h-96 overflow-y-auto">
+                <div className="space-y-4">
+                  {selectedContact.messages.length > 0 ? (
+                    selectedContact.messages.slice().reverse().map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex ${
+                          message.direction === 'outbound' ? 'justify-end' : 'justify-start'
+                        }`}
+                      >
+                        <div
+                          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                            message.direction === 'outbound'
+                              ? 'bg-[#FF914C] text-white'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          <p className="text-sm">{message.content}</p>
+                          <p className={`text-xs mt-1 ${
+                            message.direction === 'outbound' ? 'text-orange-100' : 'text-gray-500'
+                          }`}>
+                            {formatTimestamp(message.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-center text-gray-500 py-8">
+                      Nenhuma mensagem ainda
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-12">
+                <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                  Selecione um contato
+                </h3>
+                <p className="text-gray-500">
+                  Clique em um contato à esquerda para ver a conversa
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

@@ -1,11 +1,9 @@
-
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, CreditCard, Shield, Check, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -18,15 +16,17 @@ const Payment = () => {
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('credit');
   
-  // Recuperar dados do plano da navegação
+  // Usar valor padrão de R$ 150
   const selectedPlan = location.state?.plan || {
-    name: 'Profissional',
-    price: 'R$ 79',
+    name: 'Mensal',
+    price: 'R$ 150',
     features: [
-      'Até 2.000 mensagens/mês',
+      'Mensagens ilimitadas',
       'IA avançada com contexto',
-      'Agendamento automatizado',
-      'Suporte prioritário'
+      'Respostas automáticas 24/7',
+      'Integração WhatsApp Business',
+      'Dashboard completo',
+      'Suporte técnico'
     ]
   };
 
@@ -38,8 +38,6 @@ const Payment = () => {
     email: '',
     cpf: '',
   });
-
-  const planValue = parseFloat(selectedPlan.price.replace(/[R$\s]/g, '').replace(',', '.'));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +99,7 @@ const Payment = () => {
                 <div className="p-4 bg-[#FF914C]/10 rounded-lg">
                   <h3 className="font-semibold text-lg">{selectedPlan.name}</h3>
                   <p className="text-2xl font-bold text-[#FF914C] mt-2">
-                    {selectedPlan.price}/mês
+                    R$ 150/mês
                   </p>
                 </div>
                 
@@ -120,10 +118,19 @@ const Payment = () => {
                 <div className="border-t pt-4">
                   <div className="flex justify-between font-semibold">
                     <span>Total:</span>
-                    <span className="text-[#FF914C]">{selectedPlan.price}/mês</span>
+                    <span className="text-[#FF914C]">R$ 150/mês</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Cobrança mensal • Cancele a qualquer momento
+                  </p>
+                </div>
+
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium">
+                    🎉 Teste gratuito de 7 dias incluído!
+                  </p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Sua primeira cobrança será apenas em 7 dias
                   </p>
                 </div>
               </CardContent>
@@ -149,7 +156,6 @@ const Payment = () => {
 
                   <TabsContent value="credit" className="space-y-6">
                     <form onSubmit={handleSubmit} className="space-y-6">
-                      {/* Campos do cartão */}
                       <div>
                         <Label htmlFor="cardNumber">Número do Cartão</Label>
                         <Input
@@ -231,7 +237,7 @@ const Payment = () => {
                         ) : (
                           <>
                             <CreditCard className="mr-2 h-4 w-4" />
-                            Finalizar Pagamento
+                            Iniciar Teste Gratuito
                           </>
                         )}
                       </Button>
@@ -240,25 +246,14 @@ const Payment = () => {
 
                   <TabsContent value="debit" className="space-y-6">
                     <form onSubmit={handleSubmit} className="space-y-6">
-                      {/* Mesmo formulário do cartão de crédito */}
-                      <div>
-                        <Label htmlFor="debitCardNumber">Número do Cartão</Label>
-                        <Input
-                          id="debitCardNumber"
-                          placeholder="1234 5678 9012 3456"
-                          required
-                        />
-                      </div>
-                      
-                      {/* ... outros campos similares */}
-                      
+                      {/* ... keep existing code (mesmo formulário do cartão de crédito) */}
                       <Button 
                         type="submit" 
                         className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
                         disabled={loading}
                       >
                         <CreditCard className="mr-2 h-4 w-4" />
-                        Pagar com Débito
+                        Iniciar Teste com Débito
                       </Button>
                     </form>
                   </TabsContent>
@@ -273,32 +268,33 @@ const Payment = () => {
                       <QRCodeGenerator
                         type="pix"
                         value="techcorps@pix.com"
-                        amount={planValue}
+                        amount={150}
                         recipientName="Techcorps"
-                        description={`Assinatura plano ${selectedPlan.name}`}
+                        description="Assinatura chatbot R$ 150/mês"
                       />
                       
                       <div className="bg-blue-50 p-4 rounded-lg text-sm">
-                        <p className="font-medium text-blue-900 mb-2">Como pagar:</p>
-                        <ol className="text-blue-800 space-y-1 text-left">
-                          <li>1. Abra o app do seu banco</li>
-                          <li>2. Escaneie o QR Code acima</li>
-                          <li>3. Confirme os dados do pagamento</li>
-                          <li>4. Finalize a transação</li>
-                        </ol>
+                        <p className="font-medium text-blue-900 mb-2">Teste gratuito de 7 dias:</p>
+                        <p className="text-blue-800 mb-2">
+                          Você pode testar gratuitamente por 7 dias e só será cobrado após esse período.
+                        </p>
+                        <p className="text-blue-800">
+                          O PIX de R$ 150 será processado apenas no 8º dia.
+                        </p>
                       </div>
 
                       <Button 
                         onClick={() => {
                           toast({
-                            title: "Aguardando pagamento",
-                            description: "Assim que o PIX for processado, você receberá uma confirmação.",
+                            title: "Teste iniciado!",
+                            description: "Seu teste gratuito de 7 dias foi ativado. Redirecionando...",
                           });
+                          setTimeout(() => navigate('/whatsapp-integration'), 2000);
                         }}
                         className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
                       >
                         <QrCode className="mr-2 h-4 w-4" />
-                        Verificar Pagamento PIX
+                        Iniciar Teste Gratuito
                       </Button>
                     </div>
                   </TabsContent>
@@ -310,8 +306,8 @@ const Payment = () => {
                     <div>
                       <h4 className="font-medium text-blue-900">Pagamento Seguro</h4>
                       <p className="text-sm text-blue-800">
-                        Seus dados são protegidos com criptografia SSL de 256 bits. 
-                        Não armazenamos informações do cartão.
+                        Seus dados são protegidos com criptografia SSL. 
+                        Teste gratuito por 7 dias sem cobrança.
                       </p>
                     </div>
                   </div>

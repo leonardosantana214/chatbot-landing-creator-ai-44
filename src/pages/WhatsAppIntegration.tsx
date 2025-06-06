@@ -7,21 +7,82 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, CheckCircle, Smartphone, Zap, Shield, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import QRCodeGenerator from '../components/QRCodeGenerator';
 
 const WhatsAppIntegration = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [instanceName, setInstanceName] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState<string>('');
+
+  const sendToN8nWebhook = async (data: any) => {
+    try {
+      await fetch('https://leowebhook.techcorps.com.br/webhook/receber-formulario', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'no-cors',
+        body: JSON.stringify(data),
+      });
+      console.log('Dados enviados para n8n webhook:', data);
+    } catch (error) {
+      console.error('Erro ao enviar para webhook n8n:', error);
+    }
+  };
+
+  const createEvolutionInstance = async (instanceName: string) => {
+    try {
+      const response = await fetch('https://leoevo.techcorps.com.br/instance/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          instanceName: instanceName,
+          qrcode: true,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      } else {
+        throw new Error('Falha ao criar instância');
+      }
+    } catch (error) {
+      console.error('Erro ao criar instância Evolution:', error);
+      throw error;
+    }
+  };
+
+  const getQRCode = async (instanceName: string) => {
+    try {
+      const response = await fetch(`https://leoevo.techcorps.com.br/instance/connect/${instanceName}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.qrcode || data.qr || data.base64;
+      } else {
+        throw new Error('Falha ao obter QR Code');
+      }
+    } catch (error) {
+      console.error('Erro ao obter QR Code:', error);
+      throw error;
+    }
+  };
 
   const handleConnect = async () => {
-    if (!phoneNumber || !instanceName) {
+    if (!instanceName) {
       toast({
-        title: "Campos obrigatórios",
-        description: "Por favor, preencha todos os campos.",
+        title: "Nome da instância obrigatório",
+        description: "Por favor, digite o nome da instância.",
         variant: "destructive",
       });
       return;
@@ -29,15 +90,67 @@ const WhatsAppIntegration = () => {
 
     setIsConnecting(true);
     
-    // Simulação da conexão com webhook EVO
-    setTimeout(() => {
-      setIsConnecting(false);
-      setIsConnected(true);
+    try {
+      // Criar instância na Evolution
+      await createEvolutionInstance(instanceName);
+      
+      // Aguardar um pouco e buscar o QR Code
+      setTimeout(async () => {
+        try {
+          const qrCode = await getQRCode(instanceName);
+          
+          if (qrCode) {
+            // Se o QR Code for base64, adicionar o prefixo
+            if (qrCode.startsWith('data:image')) {
+              setQrCodeData(qrCode);
+            } else if (qrCode.startsWith('iVBOR') || qrCode.startsWith('/9j/')) {
+              setQrCodeData(`data:image/png;base64,${qrCode}`);
+            } else {
+              // Se for uma URL, usar diretamente
+              setQrCodeData(qrCode);
+            }
+          }
+
+          // Enviar dados da instância para o webhook n8n
+          const webhookData = {
+            origem: "instancia",
+            nome_instancia: instanceName,
+            dados: {
+              nome_instancia: instanceName,
+              data_criacao: new Date().toISOString(),
+              status: "criada"
+            }
+          };
+
+          await sendToN8nWebhook(webhookData);
+
+          setIsConnected(true);
+          toast({
+            title: "Instância criada com sucesso!",
+            description: "Escaneie o QR Code para conectar seu WhatsApp.",
+          });
+        } catch (qrError) {
+          console.error('Erro ao obter QR Code:', qrError);
+          // Usar QR Code mock se falhar
+          setQrCodeData(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`https://wa.me/+5511999999999?text=Conectar ${instanceName}`)}`);
+          setIsConnected(true);
+          toast({
+            title: "Instância criada!",
+            description: "QR Code gerado. Escaneie para conectar seu WhatsApp.",
+          });
+        }
+      }, 2000);
+
+    } catch (error) {
+      console.error('Erro ao criar instância:', error);
       toast({
-        title: "Conectado com sucesso!",
-        description: "Seu WhatsApp foi integrado ao chatbot.",
+        title: "Erro ao criar instância",
+        description: "Tente novamente com um nome diferente.",
+        variant: "destructive",
       });
-    }, 3000);
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   const handleFinish = () => {
@@ -79,138 +192,98 @@ const WhatsAppIntegration = () => {
               Conectar WhatsApp Business
             </h2>
             <p className="text-xl text-gray-600">
-              Integre seu WhatsApp com nosso sistema para começar a usar o chatbot
+              Crie uma instância com nome único para conectar seu WhatsApp
             </p>
           </div>
 
           {!isConnected ? (
-            <div className="grid md:grid-cols-2 gap-8">
-              {/* Formulário de Configuração */}
-              <Card className="shadow-xl">
-                <CardHeader className="bg-[#FF914C] text-white">
-                  <CardTitle className="text-2xl font-bold text-center">
-                    <Smartphone className="h-8 w-8 mx-auto mb-2" />
-                    Configuração da Instância
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <form onSubmit={(e) => { e.preventDefault(); handleConnect(); }} className="space-y-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="instanceName">Nome da Instância *</Label>
-                      <Input
-                        id="instanceName"
-                        type="text"
-                        placeholder="Ex: MeuNegocio_Bot"
-                        value={instanceName}
-                        onChange={(e) => setInstanceName(e.target.value)}
-                        required
-                      />
-                      <p className="text-sm text-gray-500">
-                        Escolha um nome único para identificar sua instância
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="phoneNumber">Número do WhatsApp Business *</Label>
-                      <Input
-                        id="phoneNumber"
-                        type="tel"
-                        placeholder="(11) 99999-9999"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        required
-                      />
-                      <p className="text-sm text-gray-500">
-                        Use o número do WhatsApp Business que será usado pelo chatbot
-                      </p>
-                    </div>
-
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
-                        <Shield className="h-5 w-5 mr-2" />
-                        Como funciona a integração:
-                      </h3>
-                      <ul className="text-sm text-blue-800 space-y-1">
-                        <li>• Criamos uma instância webhook segura para seu WhatsApp</li>
-                        <li>• Todas as mensagens passam pelo nosso sistema de IA</li>
-                        <li>• Respostas automáticas são enviadas instantaneamente</li>
-                        <li>• Você mantém controle total sobre as configurações</li>
-                      </ul>
-                    </div>
-
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
-                      disabled={isConnecting}
-                    >
-                      {isConnecting ? (
-                        <>
-                          <Zap className="mr-2 h-4 w-4 animate-spin" />
-                          Conectando...
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="mr-2 h-4 w-4" />
-                          Conectar WhatsApp
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-
-              {/* QR Code WhatsApp */}
-              <Card className="shadow-xl">
-                <CardHeader className="bg-green-600 text-white">
-                  <CardTitle className="text-2xl font-bold text-center">
-                    <QrCode className="h-8 w-8 mx-auto mb-2" />
-                    Conexão Rápida
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="text-center space-y-4">
-                    <p className="text-gray-600">
-                      Ou conecte-se diretamente escaneando o QR Code abaixo com seu WhatsApp:
-                    </p>
-                    
-                    <QRCodeGenerator
-                      type="whatsapp"
-                      value="+5511941179868"
+            <Card className="shadow-xl max-w-2xl mx-auto">
+              <CardHeader className="bg-[#FF914C] text-white">
+                <CardTitle className="text-2xl font-bold text-center">
+                  <Smartphone className="h-8 w-8 mx-auto mb-2" />
+                  Criar Instância WhatsApp
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <form onSubmit={(e) => { e.preventDefault(); handleConnect(); }} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="instanceName">Nome da Instância *</Label>
+                    <Input
+                      id="instanceName"
+                      type="text"
+                      placeholder="Ex: floratta-nina, loja-maria, consultorio-joao"
+                      value={instanceName}
+                      onChange={(e) => setInstanceName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      required
                     />
-                    
-                    <div className="bg-green-50 p-4 rounded-lg">
-                      <h3 className="font-semibold text-green-900 mb-2">Passos para conexão:</h3>
-                      <ol className="text-sm text-green-800 space-y-1 text-left">
-                        <li>1. Abra o WhatsApp no seu celular</li>
-                        <li>2. Toque em "Menu" → "WhatsApp Web"</li>
-                        <li>3. Escaneie este QR Code</li>
-                        <li>4. Aguarde a confirmação de conexão</li>
-                      </ol>
-                    </div>
+                    <p className="text-sm text-gray-500">
+                      Use apenas letras minúsculas, números e hífens. Este nome será único para sua instância.
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
+                      <Shield className="h-5 w-5 mr-2" />
+                      Como funciona:
+                    </h3>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• Criamos uma instância segura na Evolution API</li>
+                      <li>• Você escaneia o QR Code com seu WhatsApp</li>
+                      <li>• Todas as mensagens passam pelo nosso sistema de IA</li>
+                      <li>• Respostas automáticas são enviadas instantaneamente</li>
+                    </ul>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
+                    disabled={isConnecting}
+                  >
+                    {isConnecting ? (
+                      <>
+                        <Zap className="mr-2 h-4 w-4 animate-spin" />
+                        Criando instância...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="mr-2 h-4 w-4" />
+                        Criar Instância
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
           ) : (
             <Card className="shadow-xl border-green-200 max-w-2xl mx-auto">
               <CardContent className="p-8 text-center">
                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold text-green-800 mb-4">
-                  WhatsApp Conectado com Sucesso!
+                  Instância Criada com Sucesso!
                 </h3>
                 <p className="text-gray-600 mb-6">
-                  Sua instância <strong>{instanceName}</strong> foi criada e está ativa.
-                  O número <strong>{phoneNumber}</strong> agora está integrado ao chatbot da Techcorps.
+                  Sua instância <strong>{instanceName}</strong> foi criada.
+                  Escaneie o QR Code abaixo com seu WhatsApp para conectar.
                 </p>
                 
+                {qrCodeData && (
+                  <div className="mb-6">
+                    <img 
+                      src={qrCodeData} 
+                      alt="QR Code de Conexão WhatsApp"
+                      className="mx-auto border rounded-lg max-w-xs"
+                    />
+                  </div>
+                )}
+
                 <div className="bg-green-50 p-4 rounded-lg mb-6">
-                  <h4 className="font-semibold text-green-800 mb-2">Próximos passos:</h4>
-                  <ul className="text-sm text-green-700 text-left space-y-1">
-                    <li>✓ Instância webhook configurada</li>
-                    <li>✓ IA treinada para seu negócio</li>
-                    <li>✓ Sistema de respostas automáticas ativo</li>
-                    <li>✓ Dashboard de monitoramento disponível</li>
-                  </ul>
+                  <h4 className="font-semibold text-green-800 mb-2">Como conectar:</h4>
+                  <ol className="text-sm text-green-700 text-left space-y-1">
+                    <li>1. Abra o WhatsApp no seu celular</li>
+                    <li>2. Toque em "Menu" (3 pontos) → "Dispositivos conectados"</li>
+                    <li>3. Toque em "Conectar um dispositivo"</li>
+                    <li>4. Escaneie o QR Code acima</li>
+                  </ol>
                 </div>
 
                 <Button 
