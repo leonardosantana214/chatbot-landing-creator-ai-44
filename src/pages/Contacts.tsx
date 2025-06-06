@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, Phone, MessageSquare, Clock, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { Tables } from '@/integrations/supabase/types';
 
 interface Contact {
   id: string;
@@ -16,15 +17,7 @@ interface Contact {
   notes?: string;
   created_at: string;
   last_interaction?: string;
-  messages: Message[];
-}
-
-interface Message {
-  id: string;
-  content: string;
-  direction: 'inbound' | 'outbound';
-  created_at: string;
-  status: string;
+  messages: Tables<'messages'>[];
 }
 
 const Contacts = () => {
@@ -90,22 +83,7 @@ const Contacts = () => {
           email: 'maria@email.com',
           created_at: new Date().toISOString(),
           last_interaction: new Date().toISOString(),
-          messages: [
-            {
-              id: '1',
-              content: 'Olá! Gostaria de agendar uma massagem relaxante.',
-              direction: 'inbound',
-              created_at: new Date().toISOString(),
-              status: 'read'
-            },
-            {
-              id: '2',
-              content: 'Olá, Maria! Claro, posso te ajudar com o agendamento. Qual seria o melhor dia para você?',
-              direction: 'outbound',
-              created_at: new Date().toISOString(),
-              status: 'delivered'
-            }
-          ]
+          messages: []
         },
         {
           id: '2',
@@ -113,15 +91,7 @@ const Contacts = () => {
           phone: '5511888888888',
           created_at: new Date().toISOString(),
           last_interaction: new Date(Date.now() - 3600000).toISOString(),
-          messages: [
-            {
-              id: '3',
-              content: 'Preciso reagendar minha consulta',
-              direction: 'inbound',
-              created_at: new Date(Date.now() - 3600000).toISOString(),
-              status: 'read'
-            }
-          ]
+          messages: []
         }
       ]);
     } finally {
