@@ -7,49 +7,52 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, CheckCircle, Smartphone, Zap, Shield, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useN8nWebhook } from '@/hooks/useN8nWebhook';
 
 const WhatsAppIntegration = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { sendInstanceData } = useN8nWebhook();
   const [instanceName, setInstanceName] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [qrCodeData, setQrCodeData] = useState<string>('');
 
-  const sendToN8nWebhook = async (data: any) => {
-    try {
-      await fetch('https://leowebhook.techcorps.com.br/webhook/receber-formulario', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        mode: 'no-cors',
-        body: JSON.stringify(data),
-      });
-      console.log('Dados enviados para n8n webhook:', data);
-    } catch (error) {
-      console.error('Erro ao enviar para webhook n8n:', error);
-    }
-  };
+  const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
+  const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
 
   const createEvolutionInstance = async (instanceName: string) => {
     try {
-      const response = await fetch('https://leoevo.techcorps.com.br/instance/create', {
+      console.log('Criando instância:', instanceName);
+      
+      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'apikey': API_KEY,
         },
         body: JSON.stringify({
           instanceName: instanceName,
           qrcode: true,
+          integration: 'WHATSAPP-BAILEYS'
         }),
       });
 
+      const responseText = await response.text();
+      console.log('Resposta da criação:', responseText);
+
       if (response.ok) {
-        const data = await response.json();
-        return data;
+        try {
+          const data = JSON.parse(responseText);
+          console.log('Instância criada com sucesso:', data);
+          return data;
+        } catch (e) {
+          console.log('Resposta não é JSON válido, mas request foi bem-sucedido');
+          return { success: true };
+        }
       } else {
-        throw new Error('Falha ao criar instância');
+        console.error('Erro na criação da instância:', response.status, responseText);
+        throw new Error(`Erro ${response.status}: ${responseText}`);
       }
     } catch (error) {
       console.error('Erro ao criar instância Evolution:', error);
@@ -57,25 +60,49 @@ const WhatsAppIntegration = () => {
     }
   };
 
-  const getQRCode = async (instanceName: string) => {
-    try {
-      const response = await fetch(`https://leoevo.techcorps.com.br/instance/connect/${instanceName}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+  const getQRCode = async (instanceName: string, retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        console.log(`Tentativa ${i + 1} de obter QR Code para:`, instanceName);
+        
+        const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${instanceName}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': API_KEY,
+          },
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        return data.qrcode || data.qr || data.base64;
-      } else {
-        throw new Error('Falha ao obter QR Code');
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Dados do QR Code recebidos:', data);
+          
+          // Tentar diferentes campos possíveis para o QR Code
+          const qrCode = data.qrcode || data.qr || data.base64 || data.code;
+          
+          if (qrCode) {
+            console.log('QR Code encontrado!');
+            return qrCode;
+          } else {
+            console.log('QR Code não encontrado na resposta, tentando novamente...');
+          }
+        } else {
+          console.log(`Erro ${response.status} ao obter QR Code, tentativa ${i + 1}`);
+        }
+        
+        // Aguardar 2 segundos antes da próxima tentativa
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      } catch (error) {
+        console.error(`Erro na tentativa ${i + 1}:`, error);
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
-    } catch (error) {
-      console.error('Erro ao obter QR Code:', error);
-      throw error;
     }
+    
+    throw new Error('Não foi possível obter o QR Code após várias tentativas');
   };
 
   const handleConnect = async () => {
@@ -91,61 +118,74 @@ const WhatsAppIntegration = () => {
     setIsConnecting(true);
     
     try {
+      console.log('Iniciando processo de criação da instância...');
+      
       // Criar instância na Evolution
       await createEvolutionInstance(instanceName);
       
-      // Aguardar um pouco e buscar o QR Code
-      setTimeout(async () => {
-        try {
-          const qrCode = await getQRCode(instanceName);
+      toast({
+        title: "Instância criada!",
+        description: "Obtendo QR Code para conexão...",
+      });
+
+      // Aguardar um pouco antes de buscar o QR Code
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      try {
+        const qrCode = await getQRCode(instanceName);
+        
+        if (qrCode) {
+          // Processar o QR Code baseado no formato
+          let qrCodeUrl = '';
           
-          if (qrCode) {
-            // Se o QR Code for base64, adicionar o prefixo
-            if (qrCode.startsWith('data:image')) {
-              setQrCodeData(qrCode);
-            } else if (qrCode.startsWith('iVBOR') || qrCode.startsWith('/9j/')) {
-              setQrCodeData(`data:image/png;base64,${qrCode}`);
-            } else {
-              // Se for uma URL, usar diretamente
-              setQrCodeData(qrCode);
-            }
+          if (qrCode.startsWith('data:image')) {
+            qrCodeUrl = qrCode;
+          } else if (qrCode.startsWith('iVBOR') || qrCode.startsWith('/9j/') || qrCode.includes('base64')) {
+            // Se for base64 sem prefixo
+            qrCodeUrl = `data:image/png;base64,${qrCode.replace('data:image/png;base64,', '')}`;
+          } else if (qrCode.startsWith('http')) {
+            // Se for uma URL direta
+            qrCodeUrl = qrCode;
+          } else {
+            // Tentar como base64
+            qrCodeUrl = `data:image/png;base64,${qrCode}`;
           }
-
-          // Enviar dados da instância para o webhook n8n
-          const webhookData = {
-            origem: "instancia",
-            nome_instancia: instanceName,
-            dados: {
-              nome_instancia: instanceName,
-              data_criacao: new Date().toISOString(),
-              status: "criada"
-            }
-          };
-
-          await sendToN8nWebhook(webhookData);
-
-          setIsConnected(true);
-          toast({
-            title: "Instância criada com sucesso!",
-            description: "Escaneie o QR Code para conectar seu WhatsApp.",
-          });
-        } catch (qrError) {
-          console.error('Erro ao obter QR Code:', qrError);
-          // Usar QR Code mock se falhar
-          setQrCodeData(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`https://wa.me/+5511999999999?text=Conectar ${instanceName}`)}`);
-          setIsConnected(true);
-          toast({
-            title: "Instância criada!",
-            description: "QR Code gerado. Escaneie para conectar seu WhatsApp.",
-          });
+          
+          setQrCodeData(qrCodeUrl);
+          console.log('QR Code configurado:', qrCodeUrl);
         }
-      }, 2000);
+
+        // Enviar dados da instância para o webhook n8n
+        await sendInstanceData(instanceName, {
+          api_key_usado: API_KEY.substring(0, 8) + '...',
+          status_conexao: 'aguardando_qr_scan'
+        });
+
+        setIsConnected(true);
+        toast({
+          title: "QR Code pronto!",
+          description: "Escaneie o QR Code com seu WhatsApp para conectar.",
+        });
+
+      } catch (qrError) {
+        console.error('Erro ao obter QR Code:', qrError);
+        
+        // Usar QR Code de fallback
+        const fallbackQR = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`Conectar instância: ${instanceName}`)}`;
+        setQrCodeData(fallbackQR);
+        setIsConnected(true);
+        
+        toast({
+          title: "Instância criada!",
+          description: "QR Code de demonstração gerado. A instância foi criada com sucesso.",
+        });
+      }
 
     } catch (error) {
       console.error('Erro ao criar instância:', error);
       toast({
         title: "Erro ao criar instância",
-        description: "Tente novamente com um nome diferente.",
+        description: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Tente novamente.`,
         variant: "destructive",
       });
     } finally {
@@ -272,6 +312,10 @@ const WhatsAppIntegration = () => {
                       src={qrCodeData} 
                       alt="QR Code de Conexão WhatsApp"
                       className="mx-auto border rounded-lg max-w-xs"
+                      onError={(e) => {
+                        console.error('Erro ao carregar QR Code');
+                        e.currentTarget.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`Instância: ${instanceName}`)}`;
+                      }}
                     />
                   </div>
                 )}
