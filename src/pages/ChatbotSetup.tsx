@@ -27,9 +27,10 @@ const ChatbotSetup = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { sendToWebhook, sendInstanceData } = useN8nWebhook();
+  const { sendInstanceData } = useN8nWebhook();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [webhookSent, setWebhookSent] = useState(false); // Adicionar controle de envio
   
   // Verificar se o pagamento foi confirmado
   const paymentConfirmed = location.state?.paymentConfirmed || false;
@@ -89,11 +90,24 @@ const ChatbotSetup = () => {
       return;
     }
 
+    // Evitar envios duplicados
+    if (webhookSent) {
+      console.log('Webhook já foi enviado, navegando para integração WhatsApp...');
+      navigate('/whatsapp-integration', {
+        state: {
+          instanceName: config.nome_instancia,
+          chatbotData: config
+        }
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Enviar dados para o webhook usando o novo formato
+      console.log('Enviando dados da instância para webhook...');
       await sendInstanceData(config.nome_instancia, config);
+      setWebhookSent(true); // Marcar como enviado
 
       toast({
         title: "Chatbot criado com sucesso!",
@@ -114,6 +128,7 @@ const ChatbotSetup = () => {
         title: "Chatbot criado!",
         description: "Prosseguindo para integração WhatsApp...",
       });
+      setWebhookSent(true); // Marcar como enviado mesmo com erro
       navigate('/whatsapp-integration', {
         state: {
           instanceName: config.nome_instancia,

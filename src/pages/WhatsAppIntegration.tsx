@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -14,10 +13,10 @@ const WhatsAppIntegration = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { sendInstanceData } = useN8nWebhook();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [qrCodeData, setQrCodeData] = useState<string>('');
+  const [configSaved, setConfigSaved] = useState(false);
 
   // Pegar o nome da instância do state
   const instanceName = location.state?.instanceName || '';
@@ -37,8 +36,10 @@ const WhatsAppIntegration = () => {
       return;
     }
 
-    // Conectar automaticamente
-    handleConnect();
+    // Conectar automaticamente apenas uma vez
+    if (!isConnecting && !isConnected && !configSaved) {
+      handleConnect();
+    }
   }, [instanceName]);
 
   const createEvolutionInstance = async (instanceName: string) => {
@@ -124,7 +125,7 @@ const WhatsAppIntegration = () => {
   };
 
   const saveChatbotConfig = async () => {
-    if (!user) return;
+    if (!user || configSaved) return;
 
     try {
       const { error } = await supabase
@@ -141,18 +142,14 @@ const WhatsAppIntegration = () => {
 
       if (error) throw error;
       console.log('Configuração do chatbot salva no Supabase');
+      setConfigSaved(true);
     } catch (error) {
       console.error('Erro ao salvar configuração:', error);
     }
   };
 
   const handleConnect = async () => {
-    if (!instanceName) {
-      toast({
-        title: "Erro",
-        description: "Nome da instância não encontrado.",
-        variant: "destructive",
-      });
+    if (!instanceName || isConnecting || isConnected) {
       return;
     }
 
@@ -192,15 +189,8 @@ const WhatsAppIntegration = () => {
           console.log('QR Code configurado:', qrCodeUrl);
         }
 
-        // Salvar configuração no Supabase
+        // Salvar configuração no Supabase (apenas uma vez)
         await saveChatbotConfig();
-
-        // Enviar dados da instância para o webhook n8n
-        await sendInstanceData(instanceName, {
-          api_key_usado: API_KEY.substring(0, 8) + '...',
-          status_conexao: 'aguardando_qr_scan',
-          dados_chatbot: chatbotData
-        });
 
         setIsConnected(true);
         toast({

@@ -34,15 +34,16 @@ export const useEvolutionApi = () => {
         const data = await response.json();
         console.log('📊 Dados recebidos da Evolution:', data);
         
-        // Verificar se está conectado baseado no estado
-        const isConnected = data.state === 'open';
-        const status = data.state || 'close';
+        // Melhorar a verificação do status - considerar tanto 'open' quanto conexões ativas
+        const instanceData = data.instance || data;
+        const state = instanceData.state || data.state;
+        const isConnected = state === 'open';
         
-        console.log(`✅ Status processado: ${status}, Conectado: ${isConnected}`);
+        console.log(`✅ Status processado: ${state}, Conectado: ${isConnected}`);
         
         return {
           instanceName,
-          status: status,
+          status: state || 'close',
           connected: isConnected,
           qrcode: data.qrcode || data.qr || data.base64
         };

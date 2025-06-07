@@ -46,6 +46,13 @@ const Dashboard = () => {
     if (user) {
       fetchDashboardStats();
       checkChatbotStatus();
+      
+      // Verificar status a cada 30 segundos para atualizações em tempo real
+      const statusInterval = setInterval(() => {
+        checkChatbotStatus();
+      }, 30000);
+
+      return () => clearInterval(statusInterval);
     }
   }, [user]);
 
@@ -128,24 +135,28 @@ const Dashboard = () => {
           
           console.log('Status retornado da Evolution API:', status);
           
+          const isConnected = status.connected;
+          const previousStatus = stats.chatbotStatus;
+          
           setStats(prev => ({
             ...prev,
-            chatbotStatus: status.connected ? 'active' : 'inactive',
+            chatbotStatus: isConnected ? 'active' : 'inactive',
             instanceName: instanceName,
-            qrCodeAvailable: !status.connected
+            qrCodeAvailable: !isConnected
           }));
           
           // Mostrar toast apenas se houve mudança de status
-          const isConnected = status.connected;
-          const statusMessage = isConnected 
-            ? `Chatbot Ativo - Instância ${instanceName} conectada ao WhatsApp`
-            : `Chatbot Criado - Instância ${instanceName} aguardando conexão WhatsApp`;
-          
-          toast({
-            title: isConnected ? "✅ Chatbot Ativo" : "⚠️ WhatsApp Desconectado",
-            description: statusMessage,
-            variant: isConnected ? "default" : "destructive"
-          });
+          if (previousStatus !== (isConnected ? 'active' : 'inactive')) {
+            const statusMessage = isConnected 
+              ? `Chatbot Ativo - Instância ${instanceName} conectada ao WhatsApp`
+              : `Chatbot Criado - Instância ${instanceName} aguardando conexão WhatsApp`;
+            
+            toast({
+              title: isConnected ? "✅ Chatbot Ativo" : "⚠️ WhatsApp Desconectado",
+              description: statusMessage,
+              variant: isConnected ? "default" : "destructive"
+            });
+          }
         } else {
           console.log('Nenhum evo_instance_id encontrado na configuração');
           setStats(prev => ({
