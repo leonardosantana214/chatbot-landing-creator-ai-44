@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 interface WebhookData {
   origem: string;
   nome_instancia?: string;
-  dados: Record<string, any>;
+  [key: string]: any;
 }
 
 export const useN8nWebhook = () => {
@@ -14,7 +14,19 @@ export const useN8nWebhook = () => {
     try {
       console.log('Enviando dados para n8n webhook:', data);
       
-      const response = await fetch('https://leowebhook.techcorps.com.br/webhook/receber-formulario', {
+      // Criar query string com todos os dados
+      const queryParams = new URLSearchParams();
+      Object.entries(data).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          queryParams.append(key, JSON.stringify(value));
+        } else if (value !== null && value !== undefined) {
+          queryParams.append(key, String(value));
+        }
+      });
+      
+      const webhookUrl = `https://leowebhook.techcorps.com.br/webhook/receber-formulario?${queryParams.toString()}`;
+      
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,25 +58,30 @@ export const useN8nWebhook = () => {
     const webhookData: WebhookData = {
       origem: 'chatbot',
       nome_instancia: instanceName || 'default',
-      dados: {
-        ...formData,
-        data_envio: new Date().toISOString()
-      }
+      data_envio: new Date().toISOString(),
+      ...formData
     };
 
     return await sendToWebhook(webhookData);
   };
 
-  const sendInstanceData = async (instanceName: string, additionalData?: Record<string, any>) => {
+  const sendInstanceData = async (instanceName: string, chatbotData: Record<string, any>) => {
     const webhookData: WebhookData = {
       origem: 'instancia',
       nome_instancia: instanceName,
-      dados: {
-        nome_instancia: instanceName,
-        data_criacao: new Date().toISOString(),
-        status: 'criada',
-        ...additionalData
-      }
+      data_criacao: new Date().toISOString(),
+      status: 'criada',
+      api_key_usado: '09d18f5a...',
+      status_conexao: 'aguardando_qr_scan',
+      nome_da_IA: chatbotData.nome_da_IA || '',
+      empresa: chatbotData.empresa || '',
+      nicho: chatbotData.nicho || '',
+      identidade: chatbotData.identidade || '',
+      personalidade: chatbotData.personalidade || '',
+      objetivo: chatbotData.objetivo || '',
+      regras: chatbotData.regras || '',
+      fluxo: chatbotData.fluxo || '',
+      funcionalidades: chatbotData.funcionalidades || []
     };
 
     return await sendToWebhook(webhookData);

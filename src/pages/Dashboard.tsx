@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -123,7 +122,9 @@ const Dashboard = () => {
         
         if (instanceName) {
           // Verificar status na Evolution API
+          setCheckingStatus(true);
           const status = await checkInstanceStatus(instanceName);
+          setCheckingStatus(false);
           
           console.log('Status retornado da Evolution API:', status);
           
@@ -134,33 +135,49 @@ const Dashboard = () => {
             qrCodeAvailable: !status.connected
           }));
           
+          // Mostrar toast apenas se houve mudança de status
+          const isConnected = status.connected;
+          const statusMessage = isConnected 
+            ? `Chatbot Ativo - Instância ${instanceName} conectada ao WhatsApp`
+            : `Chatbot Criado - Instância ${instanceName} aguardando conexão WhatsApp`;
+          
           toast({
-            title: status.connected ? "Chatbot Ativo" : "Chatbot Desconectado",
-            description: status.connected 
-              ? `Instância ${instanceName} conectada ao WhatsApp`
-              : `Instância ${instanceName} criada, mas WhatsApp não conectado`,
-            variant: status.connected ? "default" : "destructive"
+            title: isConnected ? "✅ Chatbot Ativo" : "⚠️ WhatsApp Desconectado",
+            description: statusMessage,
+            variant: isConnected ? "default" : "destructive"
           });
         } else {
-          console.log('Nenhum evo_instance_id encontrado');
+          console.log('Nenhum evo_instance_id encontrado na configuração');
           setStats(prev => ({
             ...prev,
-            chatbotStatus: 'inactive'
+            chatbotStatus: 'inactive',
+            instanceName: '',
+            qrCodeAvailable: false
           }));
         }
       } else {
-        console.log('Nenhuma configuração de chatbot encontrada');
+        console.log('Nenhuma configuração de chatbot encontrada para este usuário');
         setStats(prev => ({
           ...prev,
-          chatbotStatus: 'inactive'
+          chatbotStatus: 'inactive',
+          instanceName: '',
+          qrCodeAvailable: false
         }));
       }
     } catch (error) {
       console.error('Erro ao verificar status do chatbot:', error);
       setStats(prev => ({
         ...prev,
-        chatbotStatus: 'inactive'
+        chatbotStatus: 'inactive',
+        instanceName: '',
+        qrCodeAvailable: false
       }));
+      
+      toast({
+        title: "Erro na verificação",
+        description: "Não foi possível verificar o status do chatbot. Tente novamente.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -168,10 +185,6 @@ const Dashboard = () => {
     setCheckingStatus(true);
     await checkChatbotStatus();
     setCheckingStatus(false);
-    toast({
-      title: "Status atualizado",
-      description: "Status do chatbot verificado com sucesso.",
-    });
   };
 
   const handleShowQRCode = async () => {
@@ -358,7 +371,7 @@ const Dashboard = () => {
                 className="flex items-center space-x-2"
               >
                 <RefreshCw className={`h-4 w-4 ${checkingStatus ? 'animate-spin' : ''}`} />
-                <span>Atualizar</span>
+                <span>{checkingStatus ? 'Verificando...' : 'Atualizar'}</span>
               </Button>
             </CardTitle>
           </CardHeader>
@@ -366,25 +379,26 @@ const Dashboard = () => {
             <div className={`flex items-center justify-between p-4 rounded-lg border ${
               stats.chatbotStatus === 'active' 
                 ? 'bg-green-50 border-green-200' 
-                : 'bg-red-50 border-red-200'
+                : 'bg-yellow-50 border-yellow-200'
             }`}>
               <div className="flex items-center space-x-3">
                 <div className={`w-3 h-3 rounded-full ${
-                  stats.chatbotStatus === 'active' ? 'bg-green-500' : 'bg-red-500'
+                  stats.chatbotStatus === 'active' ? 'bg-green-500' : 'bg-yellow-500'
                 }`}></div>
                 <div>
                   <p className={`font-medium ${
-                    stats.chatbotStatus === 'active' ? 'text-green-800' : 'text-red-800'
+                    stats.chatbotStatus === 'active' ? 'text-green-800' : 'text-yellow-800'
                   }`}>
-                    Chatbot {stats.chatbotStatus === 'active' ? 'Ativo' : 'Inativo'}
+                    {stats.chatbotStatus === 'active' ? '✅ Chatbot Ativo' : 
+                   stats.instanceName ? '⚠️ WhatsApp Desconectado' : '❌ Chatbot não configurado'}
                   </p>
                   <p className={`text-sm ${
-                    stats.chatbotStatus === 'active' ? 'text-green-600' : 'text-red-600'
+                    stats.chatbotStatus === 'active' ? 'text-green-600' : 'text-yellow-600'
                   }`}>
                     {stats.chatbotStatus === 'active' 
-                      ? `Instância: ${stats.instanceName} • WhatsApp conectado`
+                      ? `Instância: ${stats.instanceName} • WhatsApp conectado e funcionando`
                       : stats.instanceName 
-                        ? `Instância: ${stats.instanceName} • WhatsApp desconectado`
+                        ? `Instância: ${stats.instanceName} • Conecte seu WhatsApp escaneando o QR Code`
                         : 'Configure seu chatbot para começar a usar'
                     }
                   </p>
@@ -400,7 +414,7 @@ const Dashboard = () => {
                     className="border-blue-300 text-blue-700 hover:bg-blue-100"
                   >
                     <QrCode className="h-4 w-4 mr-2" />
-                    {loading ? 'Carregando...' : 'QR Code'}
+                    {loading ? 'Carregando...' : 'Conectar WhatsApp'}
                   </Button>
                 )}
                 <Button 
@@ -409,11 +423,11 @@ const Dashboard = () => {
                   className={`${
                     stats.chatbotStatus === 'active' || stats.instanceName
                       ? 'border-gray-300 text-gray-600 hover:bg-gray-100'
-                      : 'border-red-300 text-red-700 hover:bg-red-100'
+                      : 'border-yellow-300 text-yellow-700 hover:bg-yellow-100'
                   }`}
                 >
                   <Settings className="h-4 w-4 mr-2" />
-                  {stats.instanceName ? 'Limitado (1 chatbot)' : 'Ativar'}
+                  {stats.instanceName ? 'Limitado (1 chatbot)' : 'Criar Chatbot'}
                 </Button>
               </div>
             </div>

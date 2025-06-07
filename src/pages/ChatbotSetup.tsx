@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -28,7 +27,7 @@ const ChatbotSetup = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { sendToWebhook } = useN8nWebhook();
+  const { sendToWebhook, sendInstanceData } = useN8nWebhook();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   
@@ -48,12 +47,12 @@ const ChatbotSetup = () => {
     nome_instancia: ''
   });
 
-  // Gerar nome da instância automaticamente
+  // Gerar nome da instância automaticamente (sem espaços)
   useEffect(() => {
     if (config.nome_da_IA && config.empresa) {
       const nomeInstancia = `${config.nome_da_IA}-${config.empresa}`
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '');
       
@@ -93,24 +92,8 @@ const ChatbotSetup = () => {
     setLoading(true);
 
     try {
-      // Enviar dados completos para o webhook do n8n
-      await sendToWebhook({
-        origem: 'chatbot',
-        nome_instancia: config.nome_instancia,
-        dados: {
-          nome_da_IA: config.nome_da_IA,
-          empresa: config.empresa,
-          nicho: config.nicho,
-          identidade: config.identidade,
-          personalidade: config.personalidade,
-          objetivo: config.objetivo,
-          regras: config.regras,
-          fluxo: config.fluxo,
-          'funcionalidades[]': config.funcionalidades,
-          nome_instancia: config.nome_instancia,
-          timestamp: new Date().toISOString()
-        }
-      });
+      // Enviar dados para o webhook usando o novo formato
+      await sendInstanceData(config.nome_instancia, config);
 
       toast({
         title: "Chatbot criado com sucesso!",

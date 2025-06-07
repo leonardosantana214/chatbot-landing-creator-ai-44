@@ -17,34 +17,9 @@ export const useEvolutionApi = () => {
 
   const checkInstanceStatus = async (instanceName: string): Promise<EvolutionInstanceStatus> => {
     try {
-      console.log('Verificando status da instância:', instanceName);
+      console.log('🔍 Verificando status da instância:', instanceName);
       
-      // Primeiro, verificar se a instância existe
-      const instanceResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': API_KEY,
-        },
-      });
-
-      if (instanceResponse.ok) {
-        const instances = await instanceResponse.json();
-        console.log('Instâncias encontradas:', instances);
-        
-        const instance = instances.find((inst: any) => inst.instance?.instanceName === instanceName);
-        
-        if (!instance) {
-          console.log('Instância não encontrada');
-          return {
-            instanceName,
-            status: 'close',
-            connected: false
-          };
-        }
-      }
-
-      // Verificar status de conexão
+      // Verificar status de conexão diretamente
       const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connectionState/${instanceName}`, {
         method: 'GET',
         headers: {
@@ -53,20 +28,38 @@ export const useEvolutionApi = () => {
         },
       });
 
+      console.log('📡 Resposta da API Evolution:', response.status);
+
       if (response.ok) {
         const data = await response.json();
-        console.log('Status da instância:', data);
+        console.log('📊 Dados recebidos da Evolution:', data);
         
+        // Verificar se está conectado baseado no estado
         const isConnected = data.state === 'open';
+        const status = data.state || 'close';
+        
+        console.log(`✅ Status processado: ${status}, Conectado: ${isConnected}`);
         
         return {
           instanceName,
-          status: data.state || 'close',
+          status: status,
           connected: isConnected,
-          qrcode: data.qrcode
+          qrcode: data.qrcode || data.qr || data.base64
         };
       } else {
-        console.error('Erro ao verificar status:', response.status);
+        console.warn('⚠️ Erro na resposta da API:', response.status);
+        
+        // Se erro 404, instância não existe
+        if (response.status === 404) {
+          console.log('❌ Instância não encontrada na Evolution API');
+          return {
+            instanceName,
+            status: 'close',
+            connected: false
+          };
+        }
+        
+        // Para outros erros, assumir desconectado
         return {
           instanceName,
           status: 'close',
@@ -74,7 +67,7 @@ export const useEvolutionApi = () => {
         };
       }
     } catch (error) {
-      console.error('Erro ao verificar status:', error);
+      console.error('💥 Erro ao verificar status da instância:', error);
       return {
         instanceName,
         status: 'close',
@@ -85,7 +78,7 @@ export const useEvolutionApi = () => {
 
   const getQRCode = async (instanceName: string): Promise<string | null> => {
     try {
-      console.log('Obtendo QR Code para:', instanceName);
+      console.log('📱 Obtendo QR Code para:', instanceName);
       
       const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${instanceName}`, {
         method: 'GET',
@@ -97,12 +90,15 @@ export const useEvolutionApi = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ QR Code obtido com sucesso');
         return data.qrcode || data.qr || data.base64 || null;
+      } else {
+        console.warn('⚠️ Erro ao obter QR Code:', response.status);
       }
       
       return null;
     } catch (error) {
-      console.error('Erro ao obter QR Code:', error);
+      console.error('💥 Erro ao obter QR Code:', error);
       return null;
     }
   };
