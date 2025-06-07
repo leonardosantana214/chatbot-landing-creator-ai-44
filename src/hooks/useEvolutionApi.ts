@@ -19,6 +19,32 @@ export const useEvolutionApi = () => {
     try {
       console.log('Verificando status da instância:', instanceName);
       
+      // Primeiro, verificar se a instância existe
+      const instanceResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': API_KEY,
+        },
+      });
+
+      if (instanceResponse.ok) {
+        const instances = await instanceResponse.json();
+        console.log('Instâncias encontradas:', instances);
+        
+        const instance = instances.find((inst: any) => inst.instance?.instanceName === instanceName);
+        
+        if (!instance) {
+          console.log('Instância não encontrada');
+          return {
+            instanceName,
+            status: 'close',
+            connected: false
+          };
+        }
+      }
+
+      // Verificar status de conexão
       const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connectionState/${instanceName}`, {
         method: 'GET',
         headers: {
@@ -31,14 +57,21 @@ export const useEvolutionApi = () => {
         const data = await response.json();
         console.log('Status da instância:', data);
         
+        const isConnected = data.state === 'open';
+        
         return {
           instanceName,
           status: data.state || 'close',
-          connected: data.state === 'open',
+          connected: isConnected,
           qrcode: data.qrcode
         };
       } else {
-        throw new Error('Instância não encontrada');
+        console.error('Erro ao verificar status:', response.status);
+        return {
+          instanceName,
+          status: 'close',
+          connected: false
+        };
       }
     } catch (error) {
       console.error('Erro ao verificar status:', error);

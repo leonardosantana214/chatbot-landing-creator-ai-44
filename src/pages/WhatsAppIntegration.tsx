@@ -1,25 +1,45 @@
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ArrowLeft, CheckCircle, Smartphone, Zap, Shield, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useN8nWebhook } from '@/hooks/useN8nWebhook';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const WhatsAppIntegration = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { sendInstanceData } = useN8nWebhook();
-  const [instanceName, setInstanceName] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [qrCodeData, setQrCodeData] = useState<string>('');
 
+  // Pegar o nome da instância do state
+  const instanceName = location.state?.instanceName || '';
+  const chatbotData = location.state?.chatbotData || {};
+
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
+
+  useEffect(() => {
+    if (!instanceName) {
+      toast({
+        title: "Erro",
+        description: "Nome da instância não encontrado. Redirecionando...",
+        variant: "destructive",
+      });
+      navigate('/chatbot-setup');
+      return;
+    }
+
+    // Conectar automaticamente
+    handleConnect();
+  }, [instanceName]);
 
   const createEvolutionInstance = async (instanceName: string) => {
     try {
@@ -77,7 +97,6 @@ const WhatsAppIntegration = () => {
           const data = await response.json();
           console.log('Dados do QR Code recebidos:', data);
           
-          // Tentar diferentes campos possíveis para o QR Code
           const qrCode = data.qrcode || data.qr || data.base64 || data.code;
           
           if (qrCode) {
@@ -90,7 +109,6 @@ const WhatsAppIntegration = () => {
           console.log(`Erro ${response.status} ao obter QR Code, tentativa ${i + 1}`);
         }
         
-        // Aguardar 2 segundos antes da próxima tentativa
         if (i < retries - 1) {
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
@@ -105,11 +123,34 @@ const WhatsAppIntegration = () => {
     throw new Error('Não foi possível obter o QR Code após várias tentativas');
   };
 
+  const saveChatbotConfig = async () => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('chatbot_configs')
+        .insert({
+          user_id: user.id,
+          bot_name: chatbotData.nome_da_IA || 'Chatbot',
+          service_type: chatbotData.nicho || 'Geral',
+          tone: chatbotData.personalidade || 'Profissional',
+          evo_instance_id: instanceName,
+          is_active: true,
+          webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
+        });
+
+      if (error) throw error;
+      console.log('Configuração do chatbot salva no Supabase');
+    } catch (error) {
+      console.error('Erro ao salvar configuração:', error);
+    }
+  };
+
   const handleConnect = async () => {
     if (!instanceName) {
       toast({
-        title: "Nome da instância obrigatório",
-        description: "Por favor, digite o nome da instância.",
+        title: "Erro",
+        description: "Nome da instância não encontrado.",
         variant: "destructive",
       });
       return;
@@ -135,19 +176,15 @@ const WhatsAppIntegration = () => {
         const qrCode = await getQRCode(instanceName);
         
         if (qrCode) {
-          // Processar o QR Code baseado no formato
           let qrCodeUrl = '';
           
           if (qrCode.startsWith('data:image')) {
             qrCodeUrl = qrCode;
           } else if (qrCode.startsWith('iVBOR') || qrCode.startsWith('/9j/') || qrCode.includes('base64')) {
-            // Se for base64 sem prefixo
             qrCodeUrl = `data:image/png;base64,${qrCode.replace('data:image/png;base64,', '')}`;
           } else if (qrCode.startsWith('http')) {
-            // Se for uma URL direta
             qrCodeUrl = qrCode;
           } else {
-            // Tentar como base64
             qrCodeUrl = `data:image/png;base64,${qrCode}`;
           }
           
@@ -155,15 +192,19 @@ const WhatsAppIntegration = () => {
           console.log('QR Code configurado:', qrCodeUrl);
         }
 
+        // Salvar configuração no Supabase
+        await saveChatbotConfig();
+
         // Enviar dados da instância para o webhook n8n
         await sendInstanceData(instanceName, {
           api_key_usado: API_KEY.substring(0, 8) + '...',
-          status_conexao: 'aguardando_qr_scan'
+          status_conexao: 'aguardando_qr_scan',
+          dados_chatbot: chatbotData
         });
 
         setIsConnected(true);
         toast({
-          title: "QR Code pronto!",
+          title: "Tudo pronto!",
           description: "Escaneie o QR Code com seu WhatsApp para conectar.",
         });
 
@@ -174,6 +215,9 @@ const WhatsAppIntegration = () => {
         const fallbackQR = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`Conectar instância: ${instanceName}`)}`;
         setQrCodeData(fallbackQR);
         setIsConnected(true);
+        
+        // Ainda assim salvar a configuração
+        await saveChatbotConfig();
         
         toast({
           title: "Instância criada!",
@@ -206,7 +250,7 @@ const WhatsAppIntegration = () => {
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
-                onClick={() => navigate('/pricing-selection')}
+                onClick={() => navigate('/chatbot-setup')}
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -232,7 +276,7 @@ const WhatsAppIntegration = () => {
               Conectar WhatsApp Business
             </h2>
             <p className="text-xl text-gray-600">
-              Crie uma instância com nome único para conectar seu WhatsApp
+              Instância <code className="bg-gray-200 px-2 py-1 rounded text-sm">{instanceName}</code> foi criada automaticamente
             </p>
           </div>
 
@@ -241,57 +285,16 @@ const WhatsAppIntegration = () => {
               <CardHeader className="bg-[#FF914C] text-white">
                 <CardTitle className="text-2xl font-bold text-center">
                   <Smartphone className="h-8 w-8 mx-auto mb-2" />
-                  Criar Instância WhatsApp
+                  Criando Instância WhatsApp
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6">
-                <form onSubmit={(e) => { e.preventDefault(); handleConnect(); }} className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="instanceName">Nome da Instância *</Label>
-                    <Input
-                      id="instanceName"
-                      type="text"
-                      placeholder="Ex: floratta-nina, loja-maria, consultorio-joao"
-                      value={instanceName}
-                      onChange={(e) => setInstanceName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                      required
-                    />
-                    <p className="text-sm text-gray-500">
-                      Use apenas letras minúsculas, números e hífens. Este nome será único para sua instância.
-                    </p>
-                  </div>
-
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h3 className="font-semibold text-blue-900 mb-2 flex items-center">
-                      <Shield className="h-5 w-5 mr-2" />
-                      Como funciona:
-                    </h3>
-                    <ul className="text-sm text-blue-800 space-y-1">
-                      <li>• Criamos uma instância segura na Evolution API</li>
-                      <li>• Você escaneia o QR Code com seu WhatsApp</li>
-                      <li>• Todas as mensagens passam pelo nosso sistema de IA</li>
-                      <li>• Respostas automáticas são enviadas instantaneamente</li>
-                    </ul>
-                  </div>
-
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
-                    disabled={isConnecting}
-                  >
-                    {isConnecting ? (
-                      <>
-                        <Zap className="mr-2 h-4 w-4 animate-spin" />
-                        Criando instância...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="mr-2 h-4 w-4" />
-                        Criar Instância
-                      </>
-                    )}
-                  </Button>
-                </form>
+              <CardContent className="p-6 text-center">
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="w-16 h-16 border-4 border-[#FF914C] border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-gray-600">
+                    {isConnecting ? 'Criando instância e obtendo QR Code...' : 'Processando...'}
+                  </p>
+                </div>
               </CardContent>
             </Card>
           ) : (

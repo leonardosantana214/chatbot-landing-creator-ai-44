@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { UserData } from '../pages/LandingPage';
 import { Shield, CheckCircle, Users } from 'lucide-react';
+import { useN8nWebhook } from '@/hooks/useN8nWebhook';
 
 interface UserFormProps {
   onSubmit: (data: UserData) => void;
@@ -19,6 +20,7 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
   const [formData, setFormData] = useState<UserData>(initialData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { sendToWebhook } = useN8nWebhook();
 
   const businessAreas = [
     'Saúde e Medicina',
@@ -35,42 +37,6 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
     'Outros'
   ];
 
-  const sendToWebhook = async (data: UserData) => {
-    try {
-      const webhookUrl = 'https://webhook.site/your-webhook-url';
-      
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...data,
-          timestamp: new Date().toISOString(),
-          source: 'IA Secretary Landing Page'
-        }),
-      });
-
-      if (response.ok) {
-        console.log('Dados enviados para webhook com sucesso:', data);
-        toast({
-          title: "Sucesso!",
-          description: "Seus dados foram enviados com sucesso.",
-        });
-        return true;
-      } else {
-        throw new Error('Falha ao enviar dados para o webhook');
-      }
-    } catch (error) {
-      console.error('Erro ao enviar para webhook:', error);
-      toast({
-        title: "Dados salvos!",
-        description: "Continuando com o processo de configuração...",
-      });
-      return true;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -84,13 +50,41 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
     }
 
     setIsSubmitting(true);
-    const webhookSuccess = await sendToWebhook(formData);
-    
-    if (webhookSuccess) {
-      onSubmit(formData);
-    }
 
-    setIsSubmitting(false);
+    try {
+      // Enviar todos os dados de uma vez para o webhook
+      await sendToWebhook({
+        origem: 'formulario_usuario',
+        dados: {
+          nome_completo: formData.name,
+          empresa: formData.company,
+          area_atuacao: formData.area,
+          email: formData.email,
+          whatsapp: formData.whatsapp,
+          timestamp: new Date().toISOString(),
+          sistema: 'lovable-chatbot'
+        }
+      });
+
+      toast({
+        title: "Dados enviados!",
+        description: "Prosseguindo para seleção de planos...",
+      });
+
+      onSubmit(formData);
+    } catch (error) {
+      console.error('Erro ao enviar dados:', error);
+      
+      // Continuar mesmo com erro no webhook
+      toast({
+        title: "Dados salvos!",
+        description: "Continuando com o processo de configuração...",
+      });
+      
+      onSubmit(formData);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleInputChange = (field: keyof UserData, value: string) => {
@@ -150,6 +144,11 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
               <p className="text-gray-300">
                 Preencha seus dados para personalizar sua secretária virtual
               </p>
+              <div className="bg-red-600 text-white px-4 py-2 rounded mt-4">
+                <p className="text-sm font-medium">
+                  ⚠️ Pagamento obrigatório antes de criar conta
+                </p>
+              </div>
             </CardHeader>
 
             <CardContent className="p-8">
@@ -232,7 +231,7 @@ const UserForm = ({ onSubmit, initialData, isVisible }: UserFormProps) => {
                     className="w-full bg-black hover:bg-gray-800 text-white text-lg py-6 font-semibold transition-all duration-200 transform hover:scale-105"
                     disabled={!formData.name || !formData.company || !formData.area || !formData.email || !formData.whatsapp || isSubmitting}
                   >
-                    {isSubmitting ? 'Processando...' : 'Continuar para Planos →'}
+                    {isSubmitting ? 'Enviando dados...' : 'Continuar para Pagamento →'}
                   </Button>
                 </div>
 

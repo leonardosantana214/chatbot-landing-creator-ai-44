@@ -21,6 +21,7 @@ interface ChatbotConfig {
   regras: string;
   fluxo: string;
   funcionalidades: string[];
+  nome_instancia: string;
 }
 
 const ChatbotSetup = () => {
@@ -43,8 +44,22 @@ const ChatbotSetup = () => {
     objetivo: '',
     regras: '',
     fluxo: '',
-    funcionalidades: []
+    funcionalidades: [],
+    nome_instancia: ''
   });
+
+  // Gerar nome da instância automaticamente
+  useEffect(() => {
+    if (config.nome_da_IA && config.empresa) {
+      const nomeInstancia = `${config.nome_da_IA}-${config.empresa}`
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+      
+      setConfig(prev => ({ ...prev, nome_instancia: nomeInstancia }));
+    }
+  }, [config.nome_da_IA, config.empresa]);
 
   useEffect(() => {
     if (!paymentConfirmed) {
@@ -78,22 +93,37 @@ const ChatbotSetup = () => {
     setLoading(true);
 
     try {
-      // Enviar dados para o webhook do n8n
+      // Enviar dados completos para o webhook do n8n
       await sendToWebhook({
         origem: 'chatbot',
+        nome_instancia: config.nome_instancia,
         dados: {
-          ...config,
-          'funcionalidades[]': config.funcionalidades
+          nome_da_IA: config.nome_da_IA,
+          empresa: config.empresa,
+          nicho: config.nicho,
+          identidade: config.identidade,
+          personalidade: config.personalidade,
+          objetivo: config.objetivo,
+          regras: config.regras,
+          fluxo: config.fluxo,
+          'funcionalidades[]': config.funcionalidades,
+          nome_instancia: config.nome_instancia,
+          timestamp: new Date().toISOString()
         }
       });
 
       toast({
         title: "Chatbot criado com sucesso!",
-        description: "Seu agente foi configurado e está sendo processado...",
+        description: `Instância "${config.nome_instancia}" criada! Prosseguindo para integração WhatsApp...`,
       });
       
       setTimeout(() => {
-        navigate('/whatsapp-integration');
+        navigate('/whatsapp-integration', {
+          state: {
+            instanceName: config.nome_instancia,
+            chatbotData: config
+          }
+        });
       }, 2000);
     } catch (error) {
       console.error('Erro ao criar chatbot:', error);
@@ -101,7 +131,12 @@ const ChatbotSetup = () => {
         title: "Chatbot criado!",
         description: "Prosseguindo para integração WhatsApp...",
       });
-      navigate('/whatsapp-integration');
+      navigate('/whatsapp-integration', {
+        state: {
+          instanceName: config.nome_instancia,
+          chatbotData: config
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -152,6 +187,16 @@ const ChatbotSetup = () => {
                 required
               />
             </div>
+
+            {config.nome_instancia && (
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <Label className="text-sm font-medium text-blue-800">Nome da Instância (Gerado Automaticamente)</Label>
+                <p className="text-blue-700 font-mono text-sm mt-1">{config.nome_instancia}</p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Este será o identificador único da sua IA no WhatsApp
+                </p>
+              </div>
+            )}
 
             <div>
               <Label htmlFor="nicho">Nicho/Área de atuação</Label>
@@ -279,6 +324,7 @@ const ChatbotSetup = () => {
             <div className="bg-gray-50 rounded-lg p-4 space-y-3">
               <div><span className="font-medium">Nome da IA:</span> {config.nome_da_IA || 'Não informado'}</div>
               <div><span className="font-medium">Empresa:</span> {config.empresa || 'Não informado'}</div>
+              <div><span className="font-medium">Instância:</span> <code className="bg-gray-200 px-2 py-1 rounded text-sm">{config.nome_instancia}</code></div>
               <div><span className="font-medium">Nicho:</span> {config.nicho || 'Não informado'}</div>
               <div><span className="font-medium">Personalidade:</span> {config.personalidade || 'Não informado'}</div>
               <div><span className="font-medium">Funcionalidades:</span> {config.funcionalidades.join(', ') || 'Nenhuma selecionada'}</div>

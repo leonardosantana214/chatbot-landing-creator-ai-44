@@ -99,21 +99,33 @@ const Dashboard = () => {
 
   const checkChatbotStatus = async () => {
     try {
+      console.log('Verificando configuração do chatbot no Supabase...');
+      
       const { data: configs, error } = await supabase
         .from('chatbot_configs')
         .select('*')
         .eq('user_id', user?.id)
+        .eq('is_active', true)
         .limit(1);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar configuração:', error);
+        throw error;
+      }
+      
+      console.log('Configurações encontradas:', configs);
       
       if (configs && configs.length > 0) {
         const config = configs[0];
         const instanceName = config.evo_instance_id;
         
+        console.log('Verificando status da instância:', instanceName);
+        
         if (instanceName) {
           // Verificar status na Evolution API
           const status = await checkInstanceStatus(instanceName);
+          
+          console.log('Status retornado da Evolution API:', status);
           
           setStats(prev => ({
             ...prev,
@@ -121,13 +133,23 @@ const Dashboard = () => {
             instanceName: instanceName,
             qrCodeAvailable: !status.connected
           }));
+          
+          toast({
+            title: status.connected ? "Chatbot Ativo" : "Chatbot Desconectado",
+            description: status.connected 
+              ? `Instância ${instanceName} conectada ao WhatsApp`
+              : `Instância ${instanceName} criada, mas WhatsApp não conectado`,
+            variant: status.connected ? "default" : "destructive"
+          });
         } else {
+          console.log('Nenhum evo_instance_id encontrado');
           setStats(prev => ({
             ...prev,
             chatbotStatus: 'inactive'
           }));
         }
       } else {
+        console.log('Nenhuma configuração de chatbot encontrada');
         setStats(prev => ({
           ...prev,
           chatbotStatus: 'inactive'
@@ -206,13 +228,14 @@ const Dashboard = () => {
   };
 
   const handleConfigureChatbot = () => {
-    if (stats.chatbotStatus === 'inactive') {
+    if (stats.chatbotStatus === 'inactive' && !stats.instanceName) {
+      // Se não tem chatbot, ir para configuração
       navigate('/chatbot-setup');
     } else {
-      // Se já tem chatbot ativo, permitir apenas reconfiguração
+      // Se já tem chatbot, mostrar limitação
       toast({
-        title: "Chatbot já configurado",
-        description: "Você já possui um chatbot ativo. Para múltiplos chatbots, entre em contato conosco.",
+        title: "Limitação do plano",
+        description: "Você já possui um chatbot configurado. Para múltiplos chatbots, entre em contato: +55 11 94117-9868",
       });
     }
   };
@@ -384,18 +407,18 @@ const Dashboard = () => {
                   variant="outline" 
                   onClick={handleConfigureChatbot}
                   className={`${
-                    stats.chatbotStatus === 'active'
-                      ? 'border-green-300 text-green-700 hover:bg-green-100'
+                    stats.chatbotStatus === 'active' || stats.instanceName
+                      ? 'border-gray-300 text-gray-600 hover:bg-gray-100'
                       : 'border-red-300 text-red-700 hover:bg-red-100'
                   }`}
                 >
                   <Settings className="h-4 w-4 mr-2" />
-                  {stats.chatbotStatus === 'active' ? 'Reconfigurar' : 'Ativar'}
+                  {stats.instanceName ? 'Limitado (1 chatbot)' : 'Ativar'}
                 </Button>
               </div>
             </div>
 
-            {stats.chatbotStatus === 'inactive' && !stats.instanceName && (
+            {(stats.chatbotStatus === 'inactive' && !stats.instanceName) && (
               <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                 <p className="text-blue-800 text-sm">
                   💡 <strong>Limitação:</strong> Você pode criar apenas 1 chatbot. 
