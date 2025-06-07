@@ -4,9 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, LogOut, MessageCircle, Settings, User, BarChart3, TrendingUp } from 'lucide-react';
+import { Loader2, LogOut, MessageCircle, Settings, User, BarChart3, TrendingUp, RefreshCw, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useEvolutionApi } from '@/hooks/useEvolutionApi';
 import DashboardTabs from '../components/DashboardTabs';
 
 interface DashboardStats {
@@ -17,13 +18,19 @@ interface DashboardStats {
   satisfaction: number;
   messagesTrend: number;
   chatbotStatus: 'active' | 'inactive';
+  instanceName?: string;
+  qrCodeAvailable?: boolean;
 }
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { checkInstanceStatus, getQRCode } = useEvolutionApi();
   const [loading, setLoading] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [qrCode, setQrCode] = useState<string>('');
+  const [showQRCode, setShowQRCode] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalMessages: 0,
     activeConversations: 0,
@@ -31,7 +38,9 @@ const Dashboard = () => {
     responseTime: '2.3s',
     satisfaction: 4.8,
     messagesTrend: 15.2,
-    chatbotStatus: 'inactive'
+    chatbotStatus: 'inactive',
+    instanceName: '',
+    qrCodeAvailable: false
   });
 
   useEffect(() => {
@@ -92,24 +101,91 @@ const Dashboard = () => {
     try {
       const { data: configs, error } = await supabase
         .from('chatbot_configs')
-        .select('is_active')
+        .select('*')
         .eq('user_id', user?.id)
         .limit(1);
       
       if (error) throw error;
       
-      const isActive = configs && configs.length > 0 && configs[0].is_active;
-      setStats(prev => ({
-        ...prev,
-        chatbotStatus: isActive ? 'active' : 'inactive'
-      }));
+      if (configs && configs.length > 0) {
+        const config = configs[0];
+        const instanceName = config.evo_instance_id;
+        
+        if (instanceName) {
+          // Verificar status na Evolution API
+          const status = await checkInstanceStatus(instanceName);
+          
+          setStats(prev => ({
+            ...prev,
+            chatbotStatus: status.connected ? 'active' : 'inactive',
+            instanceName: instanceName,
+            qrCodeAvailable: !status.connected
+          }));
+        } else {
+          setStats(prev => ({
+            ...prev,
+            chatbotStatus: 'inactive'
+          }));
+        }
+      } else {
+        setStats(prev => ({
+          ...prev,
+          chatbotStatus: 'inactive'
+        }));
+      }
     } catch (error) {
       console.error('Erro ao verificar status do chatbot:', error);
-      // Status padrão como inativo se erro
       setStats(prev => ({
         ...prev,
         chatbotStatus: 'inactive'
       }));
+    }
+  };
+
+  const handleRefreshStatus = async () => {
+    setCheckingStatus(true);
+    await checkChatbotStatus();
+    setCheckingStatus(false);
+    toast({
+      title: "Status atualizado",
+      description: "Status do chatbot verificado com sucesso.",
+    });
+  };
+
+  const handleShowQRCode = async () => {
+    if (stats.instanceName) {
+      setLoading(true);
+      try {
+        const qrCodeData = await getQRCode(stats.instanceName);
+        if (qrCodeData) {
+          let qrCodeUrl = '';
+          
+          if (qrCodeData.startsWith('data:image')) {
+            qrCodeUrl = qrCodeData;
+          } else if (qrCodeData.startsWith('iVBOR') || qrCodeData.startsWith('/9j/')) {
+            qrCodeUrl = `data:image/png;base64,${qrCodeData}`;
+          } else {
+            qrCodeUrl = `data:image/png;base64,${qrCodeData}`;
+          }
+          
+          setQrCode(qrCodeUrl);
+          setShowQRCode(true);
+        } else {
+          toast({
+            title: "QR Code não disponível",
+            description: "Não foi possível obter o QR Code. Tente novamente.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Erro ao obter QR Code",
+          description: "Não foi possível obter o QR Code. Tente novamente.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -130,7 +206,15 @@ const Dashboard = () => {
   };
 
   const handleConfigureChatbot = () => {
-    navigate('/chatbot-setup');
+    if (stats.chatbotStatus === 'inactive') {
+      navigate('/chatbot-setup');
+    } else {
+      // Se já tem chatbot ativo, permitir apenas reconfiguração
+      toast({
+        title: "Chatbot já configurado",
+        description: "Você já possui um chatbot ativo. Para múltiplos chatbots, entre em contato conosco.",
+      });
+    }
   };
 
   if (loading) {
@@ -238,9 +322,21 @@ const Dashboard = () => {
         {/* Chatbot Status */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <MessageCircle className="h-5 w-5" />
-              <span>Status do Chatbot</span>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <MessageCircle className="h-5 w-5" />
+                <span>Status do Chatbot</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshStatus}
+                disabled={checkingStatus}
+                className="flex items-center space-x-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${checkingStatus ? 'animate-spin' : ''}`} />
+                <span>Atualizar</span>
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -263,27 +359,90 @@ const Dashboard = () => {
                     stats.chatbotStatus === 'active' ? 'text-green-600' : 'text-red-600'
                   }`}>
                     {stats.chatbotStatus === 'active' 
-                      ? 'Funcionando perfeitamente • Última atividade: há 2 minutos'
-                      : 'Configure seu chatbot para começar a usar'
+                      ? `Instância: ${stats.instanceName} • WhatsApp conectado`
+                      : stats.instanceName 
+                        ? `Instância: ${stats.instanceName} • WhatsApp desconectado`
+                        : 'Configure seu chatbot para começar a usar'
                     }
                   </p>
                 </div>
               </div>
-              <Button 
-                variant="outline" 
-                onClick={handleConfigureChatbot}
-                className={`${
-                  stats.chatbotStatus === 'active'
-                    ? 'border-green-300 text-green-700 hover:bg-green-100'
-                    : 'border-red-300 text-red-700 hover:bg-red-100'
-                }`}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                {stats.chatbotStatus === 'active' ? 'Configurar' : 'Ativar'}
-              </Button>
+              <div className="flex space-x-2">
+                {stats.qrCodeAvailable && stats.instanceName && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleShowQRCode}
+                    disabled={loading}
+                    className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  >
+                    <QrCode className="h-4 w-4 mr-2" />
+                    {loading ? 'Carregando...' : 'QR Code'}
+                  </Button>
+                )}
+                <Button 
+                  variant="outline" 
+                  onClick={handleConfigureChatbot}
+                  className={`${
+                    stats.chatbotStatus === 'active'
+                      ? 'border-green-300 text-green-700 hover:bg-green-100'
+                      : 'border-red-300 text-red-700 hover:bg-red-100'
+                  }`}
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  {stats.chatbotStatus === 'active' ? 'Reconfigurar' : 'Ativar'}
+                </Button>
+              </div>
             </div>
+
+            {stats.chatbotStatus === 'inactive' && !stats.instanceName && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                <p className="text-blue-800 text-sm">
+                  💡 <strong>Limitação:</strong> Você pode criar apenas 1 chatbot. 
+                  Para múltiplos chatbots, entre em contato: +55 11 94117-9868
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* QR Code Modal */}
+        {showQRCode && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <Card className="max-w-md mx-4">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Conectar WhatsApp</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowQRCode(false)}
+                  >
+                    ✕
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <div className="mb-4">
+                  <img 
+                    src={qrCode} 
+                    alt="QR Code de Conexão WhatsApp"
+                    className="mx-auto border rounded-lg max-w-xs"
+                  />
+                </div>
+                <div className="bg-blue-50 p-3 rounded-lg text-left">
+                  <h4 className="font-semibold text-blue-800 mb-2">Como conectar:</h4>
+                  <ol className="text-sm text-blue-700 space-y-1">
+                    <li>1. Abra o WhatsApp no seu celular</li>
+                    <li>2. Toque em "Menu" (3 pontos) → "Dispositivos conectados"</li>
+                    <li>3. Toque em "Conectar um dispositivo"</li>
+                    <li>4. Escaneie o QR Code acima</li>
+                  </ol>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Dashboard Tabs */}
         <DashboardTabs />

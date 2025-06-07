@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -16,17 +17,18 @@ const Payment = () => {
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('credit');
   
-  // Usar valor padrão de R$ 150
+  // Usar valor padrão de R$ 75
   const selectedPlan = location.state?.plan || {
     name: 'Mensal',
-    price: 'R$ 150',
+    price: 'R$ 75',
     features: [
       'Mensagens ilimitadas',
       'IA avançada com contexto',
       'Respostas automáticas 24/7',
       'Integração WhatsApp Business',
       'Dashboard completo',
-      'Suporte técnico'
+      'Suporte técnico',
+      '1 chatbot incluído'
     ]
   };
 
@@ -48,12 +50,12 @@ const Payment = () => {
       setLoading(false);
       toast({
         title: "Pagamento processado com sucesso!",
-        description: "Seu plano foi ativado. Redirecionando para integração WhatsApp...",
+        description: "Seu plano foi ativado. Redirecionando para criação da conta...",
       });
       
       setTimeout(() => {
-        navigate('/whatsapp-integration', { 
-          state: { plan: selectedPlan.name } 
+        navigate('/chatbot-setup', { 
+          state: { paymentConfirmed: true, plan: selectedPlan.name } 
         });
       }, 2000);
     }, 3000);
@@ -99,7 +101,7 @@ const Payment = () => {
                 <div className="p-4 bg-[#FF914C]/10 rounded-lg">
                   <h3 className="font-semibold text-lg">{selectedPlan.name}</h3>
                   <p className="text-2xl font-bold text-[#FF914C] mt-2">
-                    R$ 150/mês
+                    R$ 75/mês
                   </p>
                 </div>
                 
@@ -118,7 +120,7 @@ const Payment = () => {
                 <div className="border-t pt-4">
                   <div className="flex justify-between font-semibold">
                     <span>Total:</span>
-                    <span className="text-[#FF914C]">R$ 150/mês</span>
+                    <span className="text-[#FF914C]">R$ 75/mês</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Cobrança mensal • Cancele a qualquer momento
@@ -131,6 +133,15 @@ const Payment = () => {
                   </p>
                   <p className="text-xs text-green-600 mt-1">
                     Sua primeira cobrança será apenas em 7 dias
+                  </p>
+                </div>
+
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-800 font-medium">
+                    ⚠️ Acesso ao dashboard após pagamento
+                  </p>
+                  <p className="text-xs text-yellow-600 mt-1">
+                    Você só poderá criar sua conta após confirmar o pagamento
                   </p>
                 </div>
               </CardContent>
@@ -237,7 +248,7 @@ const Payment = () => {
                         ) : (
                           <>
                             <CreditCard className="mr-2 h-4 w-4" />
-                            Iniciar Teste Gratuito
+                            Pagar R$ 75 e Criar Conta
                           </>
                         )}
                       </Button>
@@ -253,7 +264,7 @@ const Payment = () => {
                         disabled={loading}
                       >
                         <CreditCard className="mr-2 h-4 w-4" />
-                        Iniciar Teste com Débito
+                        Pagar R$ 75 com Débito
                       </Button>
                     </form>
                   </TabsContent>
@@ -268,9 +279,9 @@ const Payment = () => {
                       <QRCodeGenerator
                         type="pix"
                         value="techcorps@pix.com"
-                        amount={150}
+                        amount={75}
                         recipientName="Techcorps"
-                        description="Assinatura chatbot R$ 150/mês"
+                        description="Assinatura chatbot R$ 75/mês"
                       />
                       
                       <div className="bg-blue-50 p-4 rounded-lg text-sm">
@@ -279,22 +290,24 @@ const Payment = () => {
                           Você pode testar gratuitamente por 7 dias e só será cobrado após esse período.
                         </p>
                         <p className="text-blue-800">
-                          O PIX de R$ 150 será processado apenas no 8º dia.
+                          O PIX de R$ 75 será processado apenas no 8º dia.
                         </p>
                       </div>
 
                       <Button 
                         onClick={() => {
                           toast({
-                            title: "Teste iniciado!",
-                            description: "Seu teste gratuito de 7 dias foi ativado. Redirecionando...",
+                            title: "Pagamento confirmado!",
+                            description: "Redirecionando para criação da conta...",
                           });
-                          setTimeout(() => navigate('/whatsapp-integration'), 2000);
+                          setTimeout(() => navigate('/chatbot-setup', { 
+                            state: { paymentConfirmed: true } 
+                          }), 2000);
                         }}
                         className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
                       >
                         <QrCode className="mr-2 h-4 w-4" />
-                        Iniciar Teste Gratuito
+                        Confirmar Pagamento PIX
                       </Button>
                     </div>
                   </TabsContent>
@@ -307,7 +320,7 @@ const Payment = () => {
                       <h4 className="font-medium text-blue-900">Pagamento Seguro</h4>
                       <p className="text-sm text-blue-800">
                         Seus dados são protegidos com criptografia SSL. 
-                        Teste gratuito por 7 dias sem cobrança.
+                        Acesso ao dashboard apenas após confirmação do pagamento.
                       </p>
                     </div>
                   </div>

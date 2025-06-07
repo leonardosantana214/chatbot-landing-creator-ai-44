@@ -13,14 +13,15 @@ const PricingSelection = () => {
       state: { 
         plan: {
           name: 'Mensal',
-          price: 'R$ 150',
+          price: 'R$ 75',
           features: [
             'Mensagens ilimitadas',
             'IA avançada com contexto',
             'Respostas automáticas 24/7',
             'Integração WhatsApp Business',
             'Dashboard completo',
-            'Suporte técnico'
+            'Suporte técnico',
+            '1 chatbot incluído'
           ]
         }
       } 
@@ -29,7 +30,7 @@ const PricingSelection = () => {
 
   const handleCustomPlan = () => {
     const message = encodeURIComponent('quero personalizar a minha IA');
-    window.open(`https://wa.me/5511999999999?text=${message}`, '_blank');
+    window.open(`https://wa.me/5511941179868?text=${message}`, '_blank');
   };
 
   return (
@@ -68,6 +69,14 @@ const PricingSelection = () => {
           <p className="text-xl text-gray-600 mb-8">
             Plano simples e acessível para automatizar seu atendimento
           </p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-2xl mx-auto mb-8">
+            <p className="text-red-800 font-medium">
+              ⚠️ Pagamento obrigatório antes de criar sua conta
+            </p>
+            <p className="text-red-600 text-sm mt-1">
+              Você só terá acesso ao dashboard após confirmar o pagamento
+            </p>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -88,7 +97,7 @@ const PricingSelection = () => {
               
               <div className="space-y-2">
                 <div className="text-4xl font-bold text-gray-900">
-                  R$ 150
+                  R$ 75
                   <span className="text-base font-normal text-gray-600">/mês</span>
                 </div>
                 <p className="text-sm text-gray-500">
@@ -107,7 +116,8 @@ const PricingSelection = () => {
                   'Dashboard completo',
                   'Suporte técnico incluído',
                   'Webhook para integrações',
-                  'Relatórios de conversas'
+                  'Relatórios de conversas',
+                  '1 chatbot incluído'
                 ].map((feature, index) => (
                   <li key={index} className="flex items-start">
                     <Check className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
@@ -129,9 +139,9 @@ const PricingSelection = () => {
           <Card className="relative border-gray-200">
             <CardHeader className="text-center pb-8">
               <CardTitle className="text-2xl font-bold text-gray-900">
-                Plano Personalizado
+                Plano Empresarial
               </CardTitle>
-              <p className="text-gray-600 mb-4">Para necessidades específicas</p>
+              <p className="text-gray-600 mb-4">Para múltiplos chatbots</p>
               
               <div className="space-y-2">
                 <div className="text-4xl font-bold text-gray-900">
@@ -147,6 +157,7 @@ const PricingSelection = () => {
               <ul className="space-y-3">
                 {[
                   'Tudo do plano mensal',
+                  'Múltiplos chatbots',
                   'IA treinada especificamente para seu negócio',
                   'Integração com sistemas próprios',
                   'CRM personalizado',
@@ -170,6 +181,12 @@ const PricingSelection = () => {
                 <MessageCircle className="h-4 w-4 mr-2" />
                 Fale Conosco
               </Button>
+
+              <div className="bg-blue-50 p-3 rounded-lg text-center">
+                <p className="text-sm text-blue-800">
+                  <strong>WhatsApp:</strong> +55 11 94117-9868
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>
