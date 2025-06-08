@@ -104,8 +104,34 @@ export const useEvolutionApi = () => {
     }
   };
 
+  const disconnectInstance = async (instanceName: string): Promise<boolean> => {
+    try {
+      console.log('🔌 Desconectando instância:', instanceName);
+      
+      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/logout/${instanceName}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': API_KEY,
+        },
+      });
+
+      if (response.ok) {
+        console.log('✅ Instância desconectada com sucesso');
+        return true;
+      } else {
+        console.warn('⚠️ Erro ao desconectar instância:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('💥 Erro ao desconectar instância:', error);
+      return false;
+    }
+  };
+
   return {
     checkInstanceStatus,
-    getQRCode
+    getQRCode,
+    disconnectInstance
   };
 };

@@ -1,9 +1,10 @@
+
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, LogOut, MessageCircle, Settings, User, BarChart3, TrendingUp, RefreshCw, QrCode } from 'lucide-react';
+import { Loader2, LogOut, MessageCircle, Settings, User, BarChart3, TrendingUp, RefreshCw, QrCode, Unlink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useEvolutionApi } from '@/hooks/useEvolutionApi';
@@ -24,7 +25,7 @@ const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { checkInstanceStatus, getQRCode } = useEvolutionApi();
+  const { checkInstanceStatus, getQRCode, disconnectInstance } = useEvolutionApi();
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [qrCode, setQrCode] = useState<string>('');
@@ -233,6 +234,40 @@ const Dashboard = () => {
     }
   };
 
+  const handleDisconnectInstance = async () => {
+    if (stats.instanceName) {
+      setLoading(true);
+      try {
+        await disconnectInstance(stats.instanceName);
+        
+        // Atualizar status local
+        setStats(prev => ({
+          ...prev,
+          chatbotStatus: 'inactive',
+          qrCodeAvailable: true
+        }));
+        
+        toast({
+          title: "Instância desconectada",
+          description: `A instância ${stats.instanceName} foi desconectada do WhatsApp.`,
+        });
+        
+        // Verificar status novamente para confirmar
+        setTimeout(() => {
+          checkChatbotStatus();
+        }, 2000);
+      } catch (error) {
+        toast({
+          title: "Erro ao desconectar",
+          description: "Não foi possível desconectar a instância. Tente novamente.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -306,7 +341,7 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Stats Cards - Removida a seção de satisfação */}
+        {/* Stats Cards */}
         <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
@@ -401,6 +436,18 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="flex space-x-2">
+                {stats.chatbotStatus === 'active' && stats.instanceName && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleDisconnectInstance}
+                    disabled={loading}
+                    className="border-red-300 text-red-700 hover:bg-red-100"
+                  >
+                    <Unlink className="h-4 w-4 mr-2" />
+                    {loading ? 'Desconectando...' : 'Desconectar instância'}
+                  </Button>
+                )}
                 {stats.qrCodeAvailable && stats.instanceName && (
                   <Button 
                     variant="outline" 

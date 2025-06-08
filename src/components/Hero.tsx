@@ -1,152 +1,119 @@
 
-import { Bot, MessageCircle, Sparkles, CheckCircle, Clock, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { Bot, MessageCircle, Zap, Users } from 'lucide-react';
 
 interface HeroProps {
   onCTAClick: () => void;
 }
 
 const Hero = ({ onCTAClick }: HeroProps) => {
-  const navigate = useNavigate();
-
-  const handleDemoClick = () => {
-    navigate('/demo');
-  };
-
   return (
-    <section className="pt-20 pb-16 bg-white min-h-screen flex items-center">
+    <section className="pt-24 pb-16 bg-gradient-to-b from-gray-50 to-white">
       <div className="container mx-auto px-4">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Text Content */}
-          <div className="space-y-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left Column - Content */}
+            <div className="space-y-8">
+              <div className="space-y-6">
+                <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                  Transforme seu
+                  <span className="text-[#FF914C] block">
+                    WhatsApp Business
+                  </span>
+                  em uma máquina de vendas
+                </h1>
+                
+                <p className="text-xl text-gray-600 leading-relaxed">
+                  Automatize 100% do seu atendimento no WhatsApp com IA avançada. 
+                  Aumente suas vendas, reduza custos e ofereça atendimento 24h sem contratar mais funcionários.
+                </p>
+              </div>
+
+              {/* CTA Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button 
+                  size="lg"
+                  onClick={onCTAClick}
+                  className="bg-[#FF914C] hover:bg-[#FF7A2B] text-white px-8 py-4 text-lg font-semibold"
+                >
+                  <Bot className="mr-2 h-5 w-5" />
+                  Ver Planos e Preços
+                </Button>
+              </div>
+
+              {/* Social Proof */}
+              <div className="flex items-center space-x-8 pt-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">500+</div>
+                  <div className="text-sm text-gray-600">Empresas atendidas</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">98%</div>
+                  <div className="text-sm text-gray-600">Satisfação</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">24h</div>
+                  <div className="text-sm text-gray-600">Atendimento</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - Features */}
             <div className="space-y-6">
-              <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-full text-sm font-medium text-gray-800 mb-4">
-                <Bot className="h-4 w-4 mr-2" />
-                Revolucione seu atendimento com IA
-              </div>
-              
-              <h1 className="text-4xl md:text-6xl font-bold text-black leading-tight">
-                Transforme seu{' '}
-                <span className="relative">
-                  WhatsApp
-                  <div className="absolute -bottom-2 left-0 w-full h-3 bg-gray-200 -z-10"></div>
-                </span> em uma{' '}
-                <span className="relative">
-                  secretária com IA
-                  <div className="absolute -bottom-2 left-0 w-full h-3 bg-black -z-10"></div>
-                </span>
-              </h1>
-              
-              <p className="text-xl text-gray-600 leading-relaxed max-w-lg">
-                Automatize 90% do seu atendimento, agende compromissos e responda perguntas 
-                24/7 com nossa inteligência artificial avançada integrada ao WhatsApp Business.
-              </p>
-            </div>
-
-            {/* Social Proof */}
-            <div className="flex flex-wrap items-center gap-8 py-4">
-              <div className="flex items-center space-x-2">
-                <div className="flex -space-x-2">
-                  <div className="w-8 h-8 bg-gray-300 rounded-full border-2 border-white"></div>
-                  <div className="w-8 h-8 bg-gray-400 rounded-full border-2 border-white"></div>
-                  <div className="w-8 h-8 bg-gray-500 rounded-full border-2 border-white"></div>
-                </div>
-                <span className="text-sm text-gray-600">+500 empresas confiam</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <div className="flex text-black">
-                  ★★★★★
-                </div>
-                <span className="text-sm text-gray-600">4.9/5 (127 avaliações)</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                onClick={onCTAClick}
-                className="bg-black hover:bg-gray-800 text-white px-8 py-4 text-lg font-semibold transition-all duration-200 transform hover:scale-105"
-                size="lg"
-              >
-                <Bot className="mr-2 h-5 w-5" />
-                Ver Planos e Preços
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                onClick={handleDemoClick}
-                className="border-2 border-black text-black hover:bg-black hover:text-white px-8 py-4 text-lg font-semibold transition-all duration-200"
-                size="lg"
-              >
-                Experimentar Demo
-              </Button>
-            </div>
-
-            {/* Features */}
-            <div className="grid sm:grid-cols-3 gap-6 pt-8">
-              <div className="text-center sm:text-left">
-                <MessageCircle className="h-10 w-10 text-black mx-auto sm:mx-0 mb-3" />
-                <h3 className="font-bold text-black mb-2">WhatsApp Integrado</h3>
-                <p className="text-sm text-gray-600">Conecta direto ao seu WhatsApp Business</p>
-              </div>
-              
-              <div className="text-center sm:text-left">
-                <Clock className="h-10 w-10 text-black mx-auto sm:mx-0 mb-3" />
-                <h3 className="font-bold text-black mb-2">24/7 Disponível</h3>
-                <p className="text-sm text-gray-600">Atende seus clientes a qualquer hora</p>
-              </div>
-              
-              <div className="text-center sm:text-left">
-                <Users className="h-10 w-10 text-black mx-auto sm:mx-0 mb-3" />
-                <h3 className="font-bold text-black mb-2">+90% Conversão</h3>
-                <p className="text-sm text-gray-600">Resposta instantânea aumenta vendas</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Visual/Image */}
-          <div className="relative">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 border border-gray-200">
-              {/* Phone mockup */}
-              <div className="bg-gray-100 rounded-xl p-4 max-w-sm mx-auto">
-                <div className="bg-black text-white p-3 rounded-lg mb-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                      <Bot className="h-5 w-5 text-black" />
+              <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+                <div className="space-y-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-[#FF914C] rounded-full p-3">
+                      <MessageCircle className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <span className="font-medium">IA Secretary</span>
-                      <div className="flex items-center text-xs text-gray-300">
-                        <div className="w-2 h-2 bg-green-400 rounded-full mr-1"></div>
-                        Online
-                      </div>
+                      <h3 className="font-semibold text-gray-900">Respostas Inteligentes</h3>
+                      <p className="text-gray-600 text-sm">IA treinada para seu negócio</p>
                     </div>
                   </div>
-                  <p className="text-sm">Olá! Como posso ajudá-lo hoje? 😊</p>
-                  <span className="text-xs text-gray-300">14:30</span>
-                </div>
-                
-                <div className="bg-white p-3 rounded-lg mb-3 ml-8">
-                  <p className="text-sm text-gray-700">Gostaria de agendar uma consulta</p>
-                  <span className="text-xs text-gray-400">14:31</span>
-                </div>
-                
-                <div className="bg-black text-white p-3 rounded-lg">
-                  <p className="text-sm">
-                    Perfeito! Tenho disponibilidade para amanhã às 14h ou quinta-feira às 10h. 
-                    Qual horário prefere? 📅
-                  </p>
-                  <span className="text-xs text-gray-300">14:31</span>
+
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-blue-500 rounded-full p-3">
+                      <Zap className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Automação Completa</h3>
+                      <p className="text-gray-600 text-sm">Agendamentos e lembretes automáticos</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-green-500 rounded-full p-3">
+                      <Users className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Gestão de Clientes</h3>
+                      <p className="text-gray-600 text-sm">CRM integrado e relatórios detalhados</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Floating elements */}
-            <div className="absolute -top-4 -right-4 bg-black text-white p-2 rounded-lg shadow-lg">
-              <CheckCircle className="h-5 w-5" />
-            </div>
-            <div className="absolute -bottom-4 -left-4 bg-white border border-gray-200 p-2 rounded-lg shadow-lg">
-              <span className="text-xs font-medium">98% Satisfação</span>
+              {/* Demo Preview */}
+              <div className="bg-gray-900 rounded-2xl p-6 text-white">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-gray-400 ml-4">WhatsApp Business</span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="bg-gray-800 rounded-lg p-3 text-sm">
+                      <span className="text-gray-400">Cliente:</span> Olá, gostaria de agendar uma consulta
+                    </div>
+                    <div className="bg-[#FF914C] rounded-lg p-3 text-sm ml-8">
+                      <span className="text-white">IA:</span> Olá! Claro, posso ajudar. Qual seria o melhor horário para você?
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
