@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -65,8 +66,13 @@ const Payment = () => {
         });
         
         setTimeout(() => {
-          navigate('/chatbot-setup', { 
-            state: { paymentConfirmed: true, plan: selectedPlan.name } 
+          // Redirecionar para CADASTRO (não login) após pagamento aprovado
+          navigate('/auth', { 
+            state: { 
+              paymentConfirmed: true, 
+              plan: selectedPlan.name,
+              mode: 'signup' // Forçar modo cadastro
+            } 
           });
         }, 2000);
       }, 3000);
@@ -99,8 +105,13 @@ const Payment = () => {
         });
         
         setTimeout(() => {
-          navigate('/chatbot-setup', { 
-            state: { paymentConfirmed: true, plan: selectedPlan.name } 
+          // Redirecionar para CADASTRO (não login) após pagamento aprovado
+          navigate('/auth', { 
+            state: { 
+              paymentConfirmed: true, 
+              plan: selectedPlan.name,
+              mode: 'signup' // Forçar modo cadastro
+            } 
           });
         }, 2000);
       }, 4000);
@@ -128,6 +139,18 @@ const Payment = () => {
         setLoading(false);
         // Em produção, abriria o PDF do boleto em nova aba
         window.open('data:text/plain;charset=utf-8,Boleto%20Banc%C3%A1rio%20-%20Mercado%20Pago', '_blank');
+        
+        // Após gerar boleto, também redirecionar para cadastro
+        setTimeout(() => {
+          navigate('/auth', { 
+            state: { 
+              paymentConfirmed: true, 
+              plan: selectedPlan.name,
+              mode: 'signup',
+              paymentMethod: 'boleto'
+            } 
+          });
+        }, 2000);
       }, 2000);
     } catch (error) {
       setLoading(false);

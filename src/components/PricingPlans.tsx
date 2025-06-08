@@ -10,21 +10,41 @@ interface PricingPlansProps {
 }
 
 const PricingPlans = ({ onPlanSelect, selectedPlan, isVisible }: PricingPlansProps) => {
-  const mainPlan = {
-    name: 'Plano Principal',
-    price: 'R$ 75',
-    description: 'Solução completa para seu negócio',
-    features: [
-      'Chatbot com IA avançada',
-      'Respostas automáticas inteligentes',
-      'Integração WhatsApp Business',
-      'Agendamento automatizado',
-      'Relatórios detalhados',
-      'Suporte prioritário',
-      'Treinamento da equipe',
-      'Configuração personalizada'
-    ]
-  };
+  const plans = [
+    {
+      name: 'Plano Principal',
+      price: 'R$ 75',
+      description: 'Solução completa para seu negócio',
+      features: [
+        'Chatbot com IA avançada',
+        'Respostas automáticas inteligentes',
+        'Integração WhatsApp Business',
+        'Agendamento automatizado',
+        'Relatórios detalhados',
+        'Suporte prioritário',
+        'Treinamento da equipe',
+        'Configuração personalizada'
+      ],
+      highlighted: true
+    },
+    {
+      name: 'Plano Empresarial',
+      price: 'Personalizado',
+      description: 'Soluções customizadas para grandes empresas',
+      features: [
+        'Tudo do Plano Principal',
+        'Múltiplas instâncias',
+        'Integração CRM personalizada',
+        'API exclusiva',
+        'Suporte 24/7 dedicado',
+        'Treinamento presencial',
+        'Consultoria especializada',
+        'SLA garantido'
+      ],
+      highlighted: false,
+      isCustom: true
+    }
+  ];
 
   if (!isVisible) return null;
 
@@ -33,48 +53,60 @@ const PricingPlans = ({ onPlanSelect, selectedPlan, isVisible }: PricingPlansPro
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-gray-900 mb-4">
-            Seu Plano de Chatbot
+            Nossos Planos de Chatbot
           </h2>
           <p className="text-xl text-gray-600 mb-8">
-            Solução completa para automatizar seu atendimento no WhatsApp
+            Escolha a solução ideal para automatizar seu atendimento no WhatsApp
           </p>
         </div>
 
-        {/* Plano Principal */}
-        <div className="max-w-md mx-auto mb-12">
-          <Card className="border-2 border-[#FF914C] shadow-xl">
-            <CardHeader className="text-center pb-8">
-              <CardTitle className="text-2xl font-bold text-gray-900">
-                {mainPlan.name}
-              </CardTitle>
-              <p className="text-gray-600 mb-4">{mainPlan.description}</p>
-              
-              <div className="space-y-2">
-                <div className="text-5xl font-bold text-[#FF914C]">
-                  {mainPlan.price}
-                  <span className="text-base font-normal text-gray-600">/mês</span>
+        {/* Planos */}
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
+          {plans.map((plan) => (
+            <Card key={plan.name} className={`${plan.highlighted ? 'border-2 border-[#FF914C] shadow-xl' : 'border shadow-lg'}`}>
+              <CardHeader className="text-center pb-8">
+                <CardTitle className="text-2xl font-bold text-gray-900">
+                  {plan.name}
+                </CardTitle>
+                <p className="text-gray-600 mb-4">{plan.description}</p>
+                
+                <div className="space-y-2">
+                  <div className={`text-5xl font-bold ${plan.highlighted ? 'text-[#FF914C]' : 'text-gray-800'}`}>
+                    {plan.price}
+                    {!plan.isCustom && <span className="text-base font-normal text-gray-600">/mês</span>}
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
+              </CardHeader>
 
-            <CardContent className="space-y-6">
-              <ul className="space-y-3">
-                {mainPlan.features.map((feature, index) => (
-                  <li key={index} className="flex items-start">
-                    <Check className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                    <span className="text-gray-700">{feature}</span>
-                  </li>
-                ))}
-              </ul>
+              <CardContent className="space-y-6">
+                <ul className="space-y-3">
+                  {plan.features.map((feature, index) => (
+                    <li key={index} className="flex items-start">
+                      <Check className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-700">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
 
-              <Button
-                onClick={() => onPlanSelect(mainPlan.name)}
-                className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3 text-lg"
-              >
-                Escolher Plano - {mainPlan.price}/mês
-              </Button>
-            </CardContent>
-          </Card>
+                {plan.isCustom ? (
+                  <Button
+                    onClick={() => window.open('https://wa.me/5511941179868', '_blank')}
+                    className="w-full bg-gray-800 hover:bg-gray-700 text-white py-3 text-lg"
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Fale Conosco no WhatsApp
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => onPlanSelect(plan.name)}
+                    className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3 text-lg"
+                  >
+                    Escolher Plano - {plan.price}/mês
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         {/* Aviso sobre planos personalizados */}
