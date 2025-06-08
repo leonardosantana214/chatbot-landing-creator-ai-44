@@ -23,7 +23,7 @@ const Hero = ({ onCTAClick }: HeroProps) => {
             <div className="space-y-6">
               <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-full text-sm font-medium text-gray-800 mb-4">
                 <Bot className="h-4 w-4 mr-2" />
-                Revolucione seu atendimento with IA
+                Revolucione seu atendimento com IA
               </div>
               
               <h1 className="text-4xl md:text-6xl font-bold text-black leading-tight">
@@ -69,7 +69,7 @@ const Hero = ({ onCTAClick }: HeroProps) => {
                 size="lg"
               >
                 <Bot className="mr-2 h-5 w-5" />
-                Criar minha IA GRÁTIS
+                Ver Planos e Preços
               </Button>
               
               <Button 

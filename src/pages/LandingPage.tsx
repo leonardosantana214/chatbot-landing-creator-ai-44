@@ -6,30 +6,11 @@ import Header from '../components/Header';
 import Hero from '../components/Hero';
 import HowItWorks from '../components/HowItWorks';
 import PricingPlans from '../components/PricingPlans';
-import UserForm from '../components/UserForm';
-import WhatsAppConnection from '../components/WhatsAppConnection';
 import Footer from '../components/Footer';
-
-export interface UserData {
-  name: string;
-  company: string;
-  area: string;
-  email: string;
-  whatsapp: string;
-}
 
 const LandingPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState<'hero' | 'form' | 'plans' | 'connection'>('hero');
-  const [userData, setUserData] = useState<UserData>({
-    name: '',
-    company: '',
-    area: '',
-    email: '',
-    whatsapp: ''
-  });
-  const [selectedPlan, setSelectedPlan] = useState<string>('');
 
   // Redirecionar usuários autenticados para o dashboard
   useEffect(() => {
@@ -38,23 +19,19 @@ const LandingPage = () => {
     }
   }, [user, navigate]);
 
-  const handleFormSubmit = (data: UserData) => {
-    setUserData(data);
-    console.log('Dados do usuário:', data);
-    
-    if (selectedPlan) {
-      setCurrentStep('connection');
-    } else {
-      setCurrentStep('plans');
-    }
-  };
-
   const handlePlanSelect = (planName: string) => {
-    setSelectedPlan(planName);
     console.log('Plano selecionado:', planName);
     
-    // Redirecionar para página de autenticação
-    navigate('/auth');
+    // Redirecionar para página de pagamento
+    navigate('/payment', { 
+      state: { 
+        plan: {
+          name: planName,
+          price: planName === 'Básico' ? 'R$ 49' : planName === 'Profissional' ? 'R$ 99' : 'R$ 199',
+          originalPrice: planName === 'Básico' ? 'R$ 39' : planName === 'Profissional' ? 'R$ 79' : 'R$ 159'
+        }
+      } 
+    });
   };
 
   const scrollToSection = (sectionId: string) => {
@@ -64,8 +41,7 @@ const LandingPage = () => {
     }
   };
 
-  const showForm = () => {
-    // Redirecionar para página de autenticação
+  const handleLoginClick = () => {
     navigate('/auth');
   };
 
@@ -73,41 +49,45 @@ const LandingPage = () => {
     navigate('/demo');
   };
 
+  const scrollToPricing = () => {
+    const element = document.getElementById('pricing');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <Header 
         onNavigate={scrollToSection} 
-        onCTAClick={showForm} 
+        onCTAClick={scrollToPricing} 
         onDemoClick={handleDemoClick}
+        onLoginClick={handleLoginClick}
       />
       
       <main>
-        <Hero onCTAClick={showForm} />
+        <Hero onCTAClick={scrollToPricing} />
         <HowItWorks />
         
-        {currentStep !== 'hero' && (
-          <>
-            <section id="form-section" className="py-16 bg-gray-50">
-              <div className="container mx-auto px-4">
-                <UserForm
-                  onSubmit={handleFormSubmit}
-                  initialData={userData}
-                  isVisible={currentStep === 'form' || (currentStep === 'plans' && !userData.name)}
-                />
-              </div>
-            </section>
-            
-            <PricingPlans 
-              onPlanSelect={handlePlanSelect}
-              selectedPlan={selectedPlan}
-              isVisible={currentStep === 'plans' || currentStep === 'form'}
-            />
-            
-            {currentStep === 'connection' && (
-              <WhatsAppConnection userData={userData} selectedPlan={selectedPlan} />
-            )}
-          </>
-        )}
+        {/* Aviso sobre necessidade de plano */}
+        <section className="py-8 bg-yellow-50 border-y border-yellow-200">
+          <div className="container mx-auto px-4 text-center">
+            <div className="max-w-2xl mx-auto">
+              <h3 className="text-xl font-bold text-yellow-800 mb-2">
+                ⚠️ É necessário adquirir um plano para criar sua conta e acessar o sistema
+              </h3>
+              <p className="text-yellow-700">
+                Escolha o plano ideal para seu negócio abaixo e tenha acesso completo à plataforma após a confirmação do pagamento.
+              </p>
+            </div>
+          </div>
+        </section>
+        
+        <PricingPlans 
+          onPlanSelect={handlePlanSelect}
+          selectedPlan=""
+          isVisible={true}
+        />
       </main>
       
       <Footer />

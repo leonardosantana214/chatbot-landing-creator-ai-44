@@ -6,60 +6,140 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, CreditCard, Shield, Check, QrCode } from 'lucide-react';
+import { ArrowLeft, CreditCard, Shield, Check, QrCode, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import QRCodeGenerator from '../components/QRCodeGenerator';
 
 const Payment = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('credit');
+  const [paymentMethod, setPaymentMethod] = useState('pix');
   
-  // Usar valor padrão de R$ 75
   const selectedPlan = location.state?.plan || {
-    name: 'Mensal',
-    price: 'R$ 75',
+    name: 'Profissional',
+    price: 'R$ 79',
+    originalPrice: 'R$ 99',
     features: [
-      'Mensagens ilimitadas',
+      'Até 2.000 mensagens/mês',
       'IA avançada com contexto',
-      'Respostas automáticas 24/7',
-      'Integração WhatsApp Business',
-      'Dashboard completo',
-      'Suporte técnico',
-      '1 chatbot incluído'
+      'Agendamento automatizado',
+      'Suporte prioritário',
+      'Relatórios detalhados',
+      'Múltiplos operadores'
     ]
   };
 
-  const [paymentData, setPaymentData] = useState({
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    cardName: '',
+  const [customerData, setCustomerData] = useState({
     email: '',
     cpf: '',
+    name: '',
+    phone: ''
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const [cardData, setCardData] = useState({
+    number: '',
+    expiry: '',
+    cvv: '',
+    holderName: ''
+  });
 
-    // Simular processamento de pagamento
-    setTimeout(() => {
+  const handlePixPayment = async () => {
+    setLoading(true);
+    
+    try {
+      // Simular criação de pagamento PIX no Mercado Pago
+      toast({
+        title: "PIX gerado com sucesso!",
+        description: "Escaneie o QR Code ou copie o código PIX para finalizar o pagamento.",
+      });
+      
+      // Em produção, aqui seria feita a integração real com o MP
+      // e o usuário seria redirecionado após confirmação do pagamento
+      setTimeout(() => {
+        setLoading(false);
+        toast({
+          title: "Pagamento confirmado!",
+          description: "Redirecionando para criação da conta...",
+        });
+        
+        setTimeout(() => {
+          navigate('/chatbot-setup', { 
+            state: { paymentConfirmed: true, plan: selectedPlan.name } 
+          });
+        }, 2000);
+      }, 3000);
+    } catch (error) {
       setLoading(false);
       toast({
-        title: "Pagamento processado com sucesso!",
-        description: "Seu plano foi ativado. Redirecionando para criação da conta...",
+        title: "Erro no pagamento",
+        description: "Tente novamente ou escolha outra forma de pagamento.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCardPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      // Simular processamento de cartão no Mercado Pago
+      toast({
+        title: "Processando pagamento...",
+        description: "Aguarde a confirmação da transação.",
       });
       
       setTimeout(() => {
-        navigate('/chatbot-setup', { 
-          state: { paymentConfirmed: true, plan: selectedPlan.name } 
+        setLoading(false);
+        toast({
+          title: "Pagamento aprovado!",
+          description: "Redirecionando para criação da conta...",
         });
-      }, 2000);
-    }, 3000);
+        
+        setTimeout(() => {
+          navigate('/chatbot-setup', { 
+            state: { paymentConfirmed: true, plan: selectedPlan.name } 
+          });
+        }, 2000);
+      }, 4000);
+    } catch (error) {
+      setLoading(false);
+      toast({
+        title: "Pagamento recusado",
+        description: "Verifique os dados do cartão e tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
+
+  const handleBoletoPayment = async () => {
+    setLoading(true);
+    
+    try {
+      toast({
+        title: "Boleto gerado!",
+        description: "O boleto será exibido em uma nova aba. O acesso será liberado em até 2 dias úteis após o pagamento.",
+      });
+      
+      // Simular geração de boleto
+      setTimeout(() => {
+        setLoading(false);
+        // Em produção, abriria o PDF do boleto em nova aba
+        window.open('data:text/plain;charset=utf-8,Boleto%20Banc%C3%A1rio%20-%20Mercado%20Pago', '_blank');
+      }, 2000);
+    } catch (error) {
+      setLoading(false);
+      toast({
+        title: "Erro ao gerar boleto",
+        description: "Tente novamente ou escolha outra forma de pagamento.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const planPrice = selectedPlan.originalPrice || selectedPlan.price;
+  const planValue = parseInt(planPrice.replace(/[^\d]/g, ''));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -70,7 +150,7 @@ const Payment = () => {
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
-                onClick={() => navigate('/pricing-selection')}
+                onClick={() => navigate('/')}
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -101,7 +181,7 @@ const Payment = () => {
                 <div className="p-4 bg-[#FF914C]/10 rounded-lg">
                   <h3 className="font-semibold text-lg">{selectedPlan.name}</h3>
                   <p className="text-2xl font-bold text-[#FF914C] mt-2">
-                    R$ 75/mês
+                    {planPrice}/mês
                   </p>
                 </div>
                 
@@ -120,28 +200,19 @@ const Payment = () => {
                 <div className="border-t pt-4">
                   <div className="flex justify-between font-semibold">
                     <span>Total:</span>
-                    <span className="text-[#FF914C]">R$ 75/mês</span>
+                    <span className="text-[#FF914C]">{planPrice}/mês</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Cobrança mensal • Cancele a qualquer momento
                   </p>
                 </div>
 
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <p className="text-sm text-green-800 font-medium">
-                    🎉 Teste gratuito de 7 dias incluído!
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm text-blue-800 font-medium">
+                    🔒 Pagamento 100% seguro via Mercado Pago
                   </p>
-                  <p className="text-xs text-green-600 mt-1">
-                    Sua primeira cobrança será apenas em 7 dias
-                  </p>
-                </div>
-
-                <div className="bg-yellow-50 p-3 rounded-lg">
-                  <p className="text-sm text-yellow-800 font-medium">
-                    ⚠️ Acesso ao dashboard após pagamento
-                  </p>
-                  <p className="text-xs text-yellow-600 mt-1">
-                    Você só poderá criar sua conta após confirmar o pagamento
+                  <p className="text-xs text-blue-600 mt-1">
+                    Dados protegidos com criptografia SSL
                   </p>
                 </div>
               </CardContent>
@@ -154,38 +225,135 @@ const Payment = () => {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <CreditCard className="h-5 w-5 mr-2" />
-                  Dados de Pagamento
+                  Pagamento via Mercado Pago
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <Tabs value={paymentMethod} onValueChange={setPaymentMethod}>
                   <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="pix">PIX (Recomendado)</TabsTrigger>
                     <TabsTrigger value="credit">Cartão de Crédito</TabsTrigger>
-                    <TabsTrigger value="debit">Cartão de Débito</TabsTrigger>
-                    <TabsTrigger value="pix">PIX</TabsTrigger>
+                    <TabsTrigger value="boleto">Boleto</TabsTrigger>
                   </TabsList>
 
+                  <TabsContent value="pix" className="space-y-6">
+                    <div className="text-center space-y-6">
+                      <div className="flex items-center justify-center space-x-2">
+                        <QrCode className="h-6 w-6 text-[#FF914C]" />
+                        <h3 className="text-lg font-semibold">Pagamento via PIX</h3>
+                      </div>
+                      
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-green-800 mb-2">✅ Aprovação Instantânea</h4>
+                        <p className="text-sm text-green-700">
+                          Pagamento processado e aprovado automaticamente. 
+                          Acesso liberado em até 5 minutos.
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="email">Email para recebimento do comprovante</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="seu@email.com"
+                            value={customerData.email}
+                            onChange={(e) => setCustomerData({...customerData, email: e.target.value})}
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="cpf">CPF</Label>
+                          <Input
+                            id="cpf"
+                            placeholder="000.000.000-00"
+                            value={customerData.cpf}
+                            onChange={(e) => setCustomerData({...customerData, cpf: e.target.value})}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <Button 
+                        onClick={handlePixPayment}
+                        className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
+                        disabled={loading || !customerData.email || !customerData.cpf}
+                      >
+                        {loading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Gerando PIX...
+                          </>
+                        ) : (
+                          <>
+                            <QrCode className="mr-2 h-4 w-4" />
+                            Gerar PIX - {planPrice}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </TabsContent>
+
                   <TabsContent value="credit" className="space-y-6">
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleCardPayment} className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="seu@email.com"
+                            value={customerData.email}
+                            onChange={(e) => setCustomerData({...customerData, email: e.target.value})}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="cpf">CPF</Label>
+                          <Input
+                            id="cpf"
+                            placeholder="000.000.000-00"
+                            value={customerData.cpf}
+                            onChange={(e) => setCustomerData({...customerData, cpf: e.target.value})}
+                            required
+                          />
+                        </div>
+                      </div>
+
                       <div>
                         <Label htmlFor="cardNumber">Número do Cartão</Label>
                         <Input
                           id="cardNumber"
                           placeholder="1234 5678 9012 3456"
-                          value={paymentData.cardNumber}
-                          onChange={(e) => setPaymentData({...paymentData, cardNumber: e.target.value})}
+                          value={cardData.number}
+                          onChange={(e) => setCardData({...cardData, number: e.target.value})}
                           required
                         />
                       </div>
 
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-2">
+                          <Label htmlFor="holderName">Nome no Cartão</Label>
+                          <Input
+                            id="holderName"
+                            placeholder="João Silva"
+                            value={cardData.holderName}
+                            onChange={(e) => setCardData({...cardData, holderName: e.target.value})}
+                            required
+                          />
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="expiryDate">Validade</Label>
+                          <Label htmlFor="expiry">Validade</Label>
                           <Input
-                            id="expiryDate"
+                            id="expiry"
                             placeholder="MM/AA"
-                            value={paymentData.expiryDate}
-                            onChange={(e) => setPaymentData({...paymentData, expiryDate: e.target.value})}
+                            value={cardData.expiry}
+                            onChange={(e) => setCardData({...cardData, expiry: e.target.value})}
                             required
                           />
                         </div>
@@ -194,45 +362,17 @@ const Payment = () => {
                           <Input
                             id="cvv"
                             placeholder="123"
-                            value={paymentData.cvv}
-                            onChange={(e) => setPaymentData({...paymentData, cvv: e.target.value})}
+                            value={cardData.cvv}
+                            onChange={(e) => setCardData({...cardData, cvv: e.target.value})}
                             required
                           />
                         </div>
                       </div>
 
-                      <div>
-                        <Label htmlFor="cardName">Nome no Cartão</Label>
-                        <Input
-                          id="cardName"
-                          placeholder="João Silva"
-                          value={paymentData.cardName}
-                          onChange={(e) => setPaymentData({...paymentData, cardName: e.target.value})}
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="seu@email.com"
-                          value={paymentData.email}
-                          onChange={(e) => setPaymentData({...paymentData, email: e.target.value})}
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="cpf">CPF</Label>
-                        <Input
-                          id="cpf"
-                          placeholder="000.000.000-00"
-                          value={paymentData.cpf}
-                          onChange={(e) => setPaymentData({...paymentData, cpf: e.target.value})}
-                          required
-                        />
+                      <div className="bg-yellow-50 p-3 rounded-lg">
+                        <p className="text-sm text-yellow-800">
+                          🔐 <strong>Autenticação 3DS:</strong> Seu banco pode solicitar confirmação adicional para maior segurança.
+                        </p>
                       </div>
 
                       <Button 
@@ -248,66 +388,69 @@ const Payment = () => {
                         ) : (
                           <>
                             <CreditCard className="mr-2 h-4 w-4" />
-                            Pagar R$ 75 e Criar Conta
+                            Pagar {planPrice} no Cartão
                           </>
                         )}
                       </Button>
                     </form>
                   </TabsContent>
 
-                  <TabsContent value="debit" className="space-y-6">
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                      {/* ... keep existing code (mesmo formulário do cartão de crédito) */}
-                      <Button 
-                        type="submit" 
-                        className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
-                        disabled={loading}
-                      >
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        Pagar R$ 75 com Débito
-                      </Button>
-                    </form>
-                  </TabsContent>
-
-                  <TabsContent value="pix" className="space-y-6">
+                  <TabsContent value="boleto" className="space-y-6">
                     <div className="text-center space-y-6">
                       <div className="flex items-center justify-center space-x-2">
-                        <QrCode className="h-6 w-6 text-[#FF914C]" />
-                        <h3 className="text-lg font-semibold">Pagamento via PIX</h3>
+                        <FileText className="h-6 w-6 text-[#FF914C]" />
+                        <h3 className="text-lg font-semibold">Boleto Bancário</h3>
                       </div>
                       
-                      <QRCodeGenerator
-                        type="pix"
-                        value="techcorps@pix.com"
-                        amount={75}
-                        recipientName="Techcorps"
-                        description="Assinatura chatbot R$ 75/mês"
-                      />
-                      
-                      <div className="bg-blue-50 p-4 rounded-lg text-sm">
-                        <p className="font-medium text-blue-900 mb-2">Teste gratuito de 7 dias:</p>
-                        <p className="text-blue-800 mb-2">
-                          Você pode testar gratuitamente por 7 dias e só será cobrado após esse período.
-                        </p>
-                        <p className="text-blue-800">
-                          O PIX de R$ 75 será processado apenas no 8º dia.
+                      <div className="bg-yellow-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-yellow-800 mb-2">⏰ Prazo para Pagamento</h4>
+                        <p className="text-sm text-yellow-700">
+                          Boleto com vencimento em 3 dias úteis. 
+                          Acesso liberado em até 2 dias úteis após confirmação do pagamento.
                         </p>
                       </div>
 
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="seu@email.com"
+                            value={customerData.email}
+                            onChange={(e) => setCustomerData({...customerData, email: e.target.value})}
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="cpf">CPF</Label>
+                          <Input
+                            id="cpf"
+                            placeholder="000.000.000-00"
+                            value={customerData.cpf}
+                            onChange={(e) => setCustomerData({...customerData, cpf: e.target.value})}
+                            required
+                          />
+                        </div>
+                      </div>
+
                       <Button 
-                        onClick={() => {
-                          toast({
-                            title: "Pagamento confirmado!",
-                            description: "Redirecionando para criação da conta...",
-                          });
-                          setTimeout(() => navigate('/chatbot-setup', { 
-                            state: { paymentConfirmed: true } 
-                          }), 2000);
-                        }}
+                        onClick={handleBoletoPayment}
                         className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
+                        disabled={loading || !customerData.email || !customerData.cpf}
                       >
-                        <QrCode className="mr-2 h-4 w-4" />
-                        Confirmar Pagamento PIX
+                        {loading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Gerando Boleto...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="mr-2 h-4 w-4" />
+                            Gerar Boleto - {planPrice}
+                          </>
+                        )}
                       </Button>
                     </div>
                   </TabsContent>
@@ -317,10 +460,10 @@ const Payment = () => {
                   <div className="flex items-start">
                     <Shield className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-blue-900">Pagamento Seguro</h4>
+                      <h4 className="font-medium text-blue-900">Pagamento Seguro - Mercado Pago</h4>
                       <p className="text-sm text-blue-800">
-                        Seus dados são protegidos com criptografia SSL. 
-                        Acesso ao dashboard apenas após confirmação do pagamento.
+                        Seus dados são protegidos com criptografia SSL e tecnologia anti-fraude. 
+                        Acesso ao sistema liberado automaticamente após confirmação.
                       </p>
                     </div>
                   </div>

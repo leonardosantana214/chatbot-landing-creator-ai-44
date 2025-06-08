@@ -14,7 +14,6 @@ interface DashboardStats {
   activeConversations: number;
   totalContacts: number;
   responseTime: string;
-  satisfaction: number;
   messagesTrend: number;
   chatbotStatus: 'active' | 'inactive';
   instanceName?: string;
@@ -35,7 +34,6 @@ const Dashboard = () => {
     activeConversations: 0,
     totalContacts: 0,
     responseTime: '2.3s',
-    satisfaction: 4.8,
     messagesTrend: 15.2,
     chatbotStatus: 'inactive',
     instanceName: '',
@@ -308,8 +306,8 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Stats Cards */}
-        <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-6 mb-8">
+        {/* Stats Cards - Removida a seção de satisfação */}
+        <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -348,19 +346,6 @@ const Dashboard = () => {
                   <p className="text-xs text-blue-600 mt-1">Cadastrados no sistema</p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Satisfação</p>
-                  <p className="text-2xl font-bold">{stats.satisfaction}/5</p>
-                  <p className="text-xs text-yellow-600 mt-1">⭐⭐⭐⭐⭐</p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-yellow-500" />
               </div>
             </CardContent>
           </Card>
