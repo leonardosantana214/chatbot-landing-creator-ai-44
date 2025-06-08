@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, LogOut, MessageCircle, Settings, User, BarChart3, TrendingUp, RefreshCw, QrCode, Unlink } from 'lucide-react';
+import { Loader2, LogOut, MessageCircle, User, BarChart3, TrendingUp, RefreshCw, QrCode, Unlink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useEvolutionApi } from '@/hooks/useEvolutionApi';
@@ -284,19 +284,6 @@ const Dashboard = () => {
     }
   };
 
-  const handleConfigureChatbot = () => {
-    if (stats.chatbotStatus === 'inactive' && !stats.instanceName) {
-      // Se não tem chatbot, ir para configuração
-      navigate('/chatbot-setup');
-    } else {
-      // Se já tem chatbot, mostrar limitação
-      toast({
-        title: "Limitação do plano",
-        description: "Você já possui um chatbot configurado. Para múltiplos chatbots, entre em contato: +55 11 94117-9868",
-      });
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -386,105 +373,103 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Chatbot Status */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <MessageCircle className="h-5 w-5" />
-                <span>Status do Chatbot</span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefreshStatus}
-                disabled={checkingStatus}
-                className="flex items-center space-x-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${checkingStatus ? 'animate-spin' : ''}`} />
-                <span>{checkingStatus ? 'Verificando...' : 'Atualizar'}</span>
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`flex items-center justify-between p-4 rounded-lg border ${
-              stats.chatbotStatus === 'active' 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-yellow-50 border-yellow-200'
-            }`}>
-              <div className="flex items-center space-x-3">
-                <div className={`w-3 h-3 rounded-full ${
-                  stats.chatbotStatus === 'active' ? 'bg-green-500' : 'bg-yellow-500'
-                }`}></div>
-                <div>
-                  <p className={`font-medium ${
-                    stats.chatbotStatus === 'active' ? 'text-green-800' : 'text-yellow-800'
-                  }`}>
-                    {stats.chatbotStatus === 'active' ? '✅ Chatbot Ativo' : 
-                   stats.instanceName ? '⚠️ WhatsApp Desconectado' : '❌ Chatbot não configurado'}
-                  </p>
-                  <p className={`text-sm ${
-                    stats.chatbotStatus === 'active' ? 'text-green-600' : 'text-yellow-600'
-                  }`}>
-                    {stats.chatbotStatus === 'active' 
-                      ? `Instância: ${stats.instanceName} • WhatsApp conectado e funcionando`
-                      : stats.instanceName 
-                        ? `Instância: ${stats.instanceName} • Conecte seu WhatsApp escaneando o QR Code`
-                        : 'Configure seu chatbot para começar a usar'
-                    }
-                  </p>
+        {/* Chatbot Status - Apenas para usuários que já têm instância configurada */}
+        {stats.instanceName && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <MessageCircle className="h-5 w-5" />
+                  <span>Status do Chatbot</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshStatus}
+                  disabled={checkingStatus}
+                  className="flex items-center space-x-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${checkingStatus ? 'animate-spin' : ''}`} />
+                  <span>{checkingStatus ? 'Verificando...' : 'Atualizar'}</span>
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`flex items-center justify-between p-4 rounded-lg border ${
+                stats.chatbotStatus === 'active' 
+                  ? 'bg-green-50 border-green-200' 
+                  : 'bg-yellow-50 border-yellow-200'
+              }`}>
+                <div className="flex items-center space-x-3">
+                  <div className={`w-3 h-3 rounded-full ${
+                    stats.chatbotStatus === 'active' ? 'bg-green-500' : 'bg-yellow-500'
+                  }`}></div>
+                  <div>
+                    <p className={`font-medium ${
+                      stats.chatbotStatus === 'active' ? 'text-green-800' : 'text-yellow-800'
+                    }`}>
+                      {stats.chatbotStatus === 'active' ? '✅ Chatbot Ativo' : '⚠️ WhatsApp Desconectado'}
+                    </p>
+                    <p className={`text-sm ${
+                      stats.chatbotStatus === 'active' ? 'text-green-600' : 'text-yellow-600'
+                    }`}>
+                      {stats.chatbotStatus === 'active' 
+                        ? `Instância: ${stats.instanceName} • WhatsApp conectado e funcionando`
+                        : `Instância: ${stats.instanceName} • Conecte seu WhatsApp escaneando o QR Code`
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  {stats.chatbotStatus === 'active' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleDisconnectInstance}
+                      disabled={loading}
+                      className="border-red-300 text-red-700 hover:bg-red-100"
+                    >
+                      <Unlink className="h-4 w-4 mr-2" />
+                      {loading ? 'Desconectando...' : 'Desconectar instância'}
+                    </Button>
+                  )}
+                  {stats.qrCodeAvailable && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleShowQRCode}
+                      disabled={loading}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                    >
+                      <QrCode className="h-4 w-4 mr-2" />
+                      {loading ? 'Carregando...' : 'Conectar WhatsApp'}
+                    </Button>
+                  )}
                 </div>
               </div>
-              <div className="flex space-x-2">
-                {stats.chatbotStatus === 'active' && stats.instanceName && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleDisconnectInstance}
-                    disabled={loading}
-                    className="border-red-300 text-red-700 hover:bg-red-100"
-                  >
-                    <Unlink className="h-4 w-4 mr-2" />
-                    {loading ? 'Desconectando...' : 'Desconectar instância'}
-                  </Button>
-                )}
-                {stats.qrCodeAvailable && stats.instanceName && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleShowQRCode}
-                    disabled={loading}
-                    className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                  >
-                    <QrCode className="h-4 w-4 mr-2" />
-                    {loading ? 'Carregando...' : 'Conectar WhatsApp'}
-                  </Button>
-                )}
-                <Button 
-                  variant="outline" 
-                  onClick={handleConfigureChatbot}
-                  className={`${
-                    stats.chatbotStatus === 'active' || stats.instanceName
-                      ? 'border-gray-300 text-gray-600 hover:bg-gray-100'
-                      : 'border-yellow-300 text-yellow-700 hover:bg-yellow-100'
-                  }`}
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  {stats.instanceName ? 'Limitado (1 chatbot)' : 'Criar Chatbot'}
-                </Button>
-              </div>
-            </div>
+            </CardContent>
+          </Card>
+        )}
 
-            {(stats.chatbotStatus === 'inactive' && !stats.instanceName) && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+        {/* Aviso para usuários sem chatbot configurado */}
+        {!stats.instanceName && (
+          <Card className="mb-8">
+            <CardContent className="p-8 text-center">
+              <MessageCircle className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                Bem-vindo ao seu Dashboard!
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Seu chatbot será configurado seguindo o fluxo completo após o pagamento do plano.
+              </p>
+              <div className="bg-blue-50 p-4 rounded-lg">
                 <p className="text-blue-800 text-sm">
-                  💡 <strong>Limitação:</strong> Você pode criar apenas 1 chatbot. 
-                  Para múltiplos chatbots, entre em contato: +55 11 94117-9868
+                  💡 Para configurar seu chatbot ou fazer alguma alteração, entre em contato: +55 11 94117-9868
                 </p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* QR Code Modal */}
         {showQRCode && (

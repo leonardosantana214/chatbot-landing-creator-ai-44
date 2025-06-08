@@ -27,8 +27,18 @@ const LandingPage = () => {
       state: { 
         plan: {
           name: planName,
-          price: planName === 'Básico' ? 'R$ 49' : planName === 'Profissional' ? 'R$ 99' : 'R$ 199',
-          originalPrice: planName === 'Básico' ? 'R$ 39' : planName === 'Profissional' ? 'R$ 79' : 'R$ 159'
+          price: 'R$ 75',
+          originalPrice: 'R$ 75',
+          features: [
+            'Chatbot com IA avançada',
+            'Respostas automáticas inteligentes',
+            'Integração WhatsApp Business',
+            'Agendamento automatizado',
+            'Relatórios detalhados',
+            'Suporte prioritário',
+            'Treinamento da equipe',
+            'Configuração personalizada'
+          ]
         }
       } 
     });

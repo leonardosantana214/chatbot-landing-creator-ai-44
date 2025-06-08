@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -17,16 +16,18 @@ const Payment = () => {
   const [paymentMethod, setPaymentMethod] = useState('pix');
   
   const selectedPlan = location.state?.plan || {
-    name: 'Profissional',
-    price: 'R$ 79',
-    originalPrice: 'R$ 99',
+    name: 'Plano Principal',
+    price: 'R$ 75',
+    originalPrice: 'R$ 75',
     features: [
-      'Até 2.000 mensagens/mês',
-      'IA avançada com contexto',
+      'Chatbot com IA avançada',
+      'Respostas automáticas inteligentes',
+      'Integração WhatsApp Business',
       'Agendamento automatizado',
-      'Suporte prioritário',
       'Relatórios detalhados',
-      'Múltiplos operadores'
+      'Suporte prioritário',
+      'Treinamento da equipe',
+      'Configuração personalizada'
     ]
   };
 
@@ -138,8 +139,7 @@ const Payment = () => {
     }
   };
 
-  const planPrice = selectedPlan.originalPrice || selectedPlan.price;
-  const planValue = parseInt(planPrice.replace(/[^\d]/g, ''));
+  const planPrice = selectedPlan.price;
 
   return (
     <div className="min-h-screen bg-gray-50">
