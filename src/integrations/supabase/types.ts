@@ -95,6 +95,81 @@ export type Database = {
           },
         ]
       }
+      clientes: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: number
+          telefone: string
+          updated_at: string
+          user_id: string
+          user_nome: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: number
+          telefone: string
+          updated_at?: string
+          user_id: string
+          user_nome: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: number
+          telefone?: string
+          updated_at?: string
+          user_id?: string
+          user_nome?: string
+        }
+        Relationships: []
+      }
+      consulta: {
+        Row: {
+          created_at: string
+          email: string | null
+          horario: string
+          id: number
+          id_evento: string | null
+          nome_cliente: string
+          profissional: string | null
+          protocolo: string
+          telefone: string
+          tipo_atendimento: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          horario: string
+          id?: number
+          id_evento?: string | null
+          nome_cliente: string
+          profissional?: string | null
+          protocolo: string
+          telefone: string
+          tipo_atendimento: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          horario?: string
+          id?: number
+          id_evento?: string | null
+          nome_cliente?: string
+          profissional?: string | null
+          protocolo?: string
+          telefone?: string
+          tipo_atendimento?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           avatar_url: string | null
