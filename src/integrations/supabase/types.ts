@@ -218,6 +218,42 @@ export type Database = {
         }
         Relationships: []
       }
+      mensagens: {
+        Row: {
+          ativo: boolean | null
+          bot_message: string
+          created_at: string
+          id: number
+          message_type: string | null
+          telefone: string
+          updated_at: string
+          user_id: string
+          user_message: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          bot_message: string
+          created_at?: string
+          id?: number
+          message_type?: string | null
+          telefone: string
+          updated_at?: string
+          user_id: string
+          user_message: string
+        }
+        Update: {
+          ativo?: boolean | null
+          bot_message?: string
+          created_at?: string
+          id?: number
+          message_type?: string | null
+          telefone?: string
+          updated_at?: string
+          user_id?: string
+          user_message?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           chat_id: string
