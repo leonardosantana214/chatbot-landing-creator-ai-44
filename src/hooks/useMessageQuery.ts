@@ -17,13 +17,20 @@ export const useMessageQuery = () => {
   const saveMessageWithPhoneKey = async (queryData: MessageQueryData) => {
     try {
       console.log('💾 Salvando mensagem com chave de telefone:', queryData);
+      console.log('🔍 user_id:', queryData.user_id);
+      console.log('🔍 concatenated_key:', queryData.concatenated_key);
 
-      // Salvar na tabela mensagens com a chave concatenada
+      // Verificar se user_id é um UUID válido
+      if (!queryData.user_id || queryData.user_id.length !== 36) {
+        throw new Error(`user_id inválido: ${queryData.user_id}`);
+      }
+
+      // Salvar na tabela mensagens com os campos corretos
       const { data, error } = await supabase
         .from('mensagens')
         .insert({
-          user_id: queryData.user_id,
-          telefone: queryData.concatenated_key, // Usar a chave concatenada como telefone
+          user_id: queryData.user_id, // UUID válido
+          telefone: queryData.concatenated_key, // Chave concatenada
           user_message: queryData.message,
           bot_message: queryData.bot_response || 'Processando...',
           message_type: 'text',
@@ -33,7 +40,13 @@ export const useMessageQuery = () => {
         });
 
       if (error) {
-        console.error('❌ Erro ao salvar mensagem:', error);
+        console.error('❌ Erro detalhado ao salvar mensagem:', {
+          error,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
         throw error;
       }
 

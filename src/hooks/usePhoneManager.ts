@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -49,6 +50,8 @@ export const usePhoneManager = () => {
 
   const findOrCreateUser = async (userPhone: string): Promise<string | null> => {
     try {
+      console.log('🔍 Buscando usuário para telefone:', userPhone);
+      
       // Primeiro, tentar encontrar usuário existente pelo telefone
       const { data: existingContact, error: searchError } = await supabase
         .from('contacts')
@@ -62,17 +65,21 @@ export const usePhoneManager = () => {
       }
 
       if (existingContact && existingContact.length > 0) {
+        console.log('✅ Usuário existente encontrado:', existingContact[0].user_id);
         return existingContact[0].user_id;
       }
 
-      // Se não encontrou, criar novo contato (precisará de um user_id válido)
-      // Por enquanto, vamos usar um user_id padrão ou do usuário logado
+      console.log('👤 Usuário não encontrado, obtendo usuário autenticado...');
+      
+      // Se não encontrou, usar o usuário logado como padrão
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        console.error('Usuário não autenticado');
+        console.error('❌ Usuário não autenticado');
         return null;
       }
+
+      console.log('📝 Criando novo contato para user_id:', user.id);
 
       // Criar novo contato
       const { data: newContact, error: createError } = await supabase
@@ -86,19 +93,22 @@ export const usePhoneManager = () => {
         .single();
 
       if (createError) {
-        console.error('Erro ao criar contato:', createError);
+        console.error('❌ Erro ao criar contato:', createError);
         return null;
       }
 
+      console.log('✅ Novo contato criado com user_id:', newContact.user_id);
       return newContact.user_id;
     } catch (error) {
-      console.error('Erro ao buscar/criar usuário:', error);
+      console.error('💥 Erro ao buscar/criar usuário:', error);
       return null;
     }
   };
 
   const savePhoneKey = async (phoneData: PhoneData): Promise<boolean> => {
     try {
+      console.log('💾 Salvando chave do telefone:', phoneData);
+      
       // Salvar na tabela contacts com todos os campos obrigatórios
       const { error } = await supabase
         .from('contacts')
@@ -113,13 +123,14 @@ export const usePhoneManager = () => {
         });
 
       if (error) {
-        console.error('Erro ao salvar chave do telefone:', error);
+        console.error('❌ Erro ao salvar chave do telefone:', error);
         return false;
       }
 
+      console.log('✅ Chave do telefone salva com sucesso');
       return true;
     } catch (error) {
-      console.error('Erro ao salvar chave:', error);
+      console.error('💥 Erro ao salvar chave:', error);
       return false;
     }
   };
@@ -129,6 +140,7 @@ export const usePhoneManager = () => {
     
     try {
       console.log('🔄 Processando dados do telefone...');
+      console.log('📨 Dados WhatsApp recebidos:', whatsappData);
       
       // 1. Extrair telefone do usuário
       const userPhone = extractPhoneFromWhatsApp(whatsappData);
@@ -136,7 +148,7 @@ export const usePhoneManager = () => {
         throw new Error('Não foi possível extrair o telefone do usuário');
       }
       
-      console.log('📱 Telefone do usuário:', userPhone);
+      console.log('📱 Telefone do usuário extraído:', userPhone);
 
       // 2. Buscar telefone da Evolution
       const evolutionPhone = await getEvolutionInstancePhone(instanceName);
@@ -144,7 +156,7 @@ export const usePhoneManager = () => {
         throw new Error('Não foi possível obter o telefone da Evolution');
       }
       
-      console.log('🤖 Telefone da Evolution:', evolutionPhone);
+      console.log('🤖 Telefone da Evolution obtido:', evolutionPhone);
 
       // 3. Buscar ou criar user_id
       const userId = await findOrCreateUser(userPhone);
@@ -152,11 +164,11 @@ export const usePhoneManager = () => {
         throw new Error('Não foi possível obter user_id');
       }
       
-      console.log('👤 User ID:', userId);
+      console.log('👤 User ID obtido:', userId);
 
       // 4. Criar chave concatenada
       const concatenatedKey = `${userPhone}_${evolutionPhone}`;
-      console.log('🔑 Chave concatenada:', concatenatedKey);
+      console.log('🔑 Chave concatenada criada:', concatenatedKey);
 
       // 5. Criar objeto com todos os dados
       const newPhoneData: PhoneData = {
@@ -165,6 +177,8 @@ export const usePhoneManager = () => {
         concatenated_key: concatenatedKey,
         user_id: userId,
       };
+
+      console.log('📦 Dados finais do telefone:', newPhoneData);
 
       // 6. Salvar no Supabase
       const saved = await savePhoneKey(newPhoneData);
