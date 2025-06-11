@@ -2,50 +2,26 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useInstancePhoneManager } from './useInstancePhoneManager';
+import { useConversationManager } from './useConversationManager';
 
-interface PhoneData {
+interface ProcessedMessageData {
   user_phone: string;
-  evolution_phone: string;
-  concatenated_key: string;
   user_id: string;
+  instance_phone: string;
+  conversation_key: string;
 }
 
 export const usePhoneManager = () => {
-  const [phoneData, setPhoneData] = useState<PhoneData | null>(null);
+  const [messageData, setMessageData] = useState<ProcessedMessageData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const { getInstancePhone } = useInstancePhoneManager();
+  const { createConversationKey } = useConversationManager();
 
   const extractPhoneFromWhatsApp = (whatsappData: any): string => {
-    // Extrair número do WhatsApp (formato pode variar)
     const phone = whatsappData.from || whatsappData.phone || whatsappData.number || '';
-    // Limpar o número (remover caracteres especiais, manter apenas números)
     return phone.replace(/\D/g, '');
-  };
-
-  const getEvolutionInstancePhone = async (instanceName: string): Promise<string> => {
-    try {
-      const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
-      const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
-      
-      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/fetch/${instanceName}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': API_KEY,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const evolutionPhone = data.instance?.phone || data.phone || '';
-        return evolutionPhone.replace(/\D/g, '');
-      }
-      
-      return '';
-    } catch (error) {
-      console.error('Erro ao buscar telefone da Evolution:', error);
-      return '';
-    }
   };
 
   const findOrCreateUser = async (userPhone: string): Promise<string | null> => {
@@ -60,7 +36,7 @@ export const usePhoneManager = () => {
         .limit(1);
 
       if (searchError) {
-        console.error('Erro ao buscar contato:', searchError);
+        console.error('❌ Erro ao buscar contato:', searchError);
         return null;
       }
 
@@ -105,102 +81,62 @@ export const usePhoneManager = () => {
     }
   };
 
-  const savePhoneKey = async (phoneData: PhoneData): Promise<boolean> => {
-    try {
-      console.log('💾 Salvando chave do telefone:', phoneData);
-      
-      // Salvar na tabela contacts com todos os campos obrigatórios
-      const { error } = await supabase
-        .from('contacts')
-        .upsert({
-          user_id: phoneData.user_id,
-          name: `Usuário ${phoneData.user_phone}`, // Campo obrigatório
-          phone: phoneData.user_phone,
-          notes: `Chave: ${phoneData.concatenated_key}`,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'phone'
-        });
-
-      if (error) {
-        console.error('❌ Erro ao salvar chave do telefone:', error);
-        return false;
-      }
-
-      console.log('✅ Chave do telefone salva com sucesso');
-      return true;
-    } catch (error) {
-      console.error('💥 Erro ao salvar chave:', error);
-      return false;
-    }
-  };
-
-  const processPhoneData = async (whatsappData: any, instanceName: string) => {
+  const processMessage = async (whatsappData: any, instanceName: string) => {
     setIsProcessing(true);
     
     try {
-      console.log('🔄 Processando dados do telefone...');
-      console.log('📨 Dados WhatsApp recebidos:', whatsappData);
+      console.log('🔄 Processando mensagem...');
+      console.log('📨 Dados WhatsApp:', whatsappData);
+      console.log('🏭 Instância:', instanceName);
       
       // 1. Extrair telefone do usuário
       const userPhone = extractPhoneFromWhatsApp(whatsappData);
       if (!userPhone) {
         throw new Error('Não foi possível extrair o telefone do usuário');
       }
-      
-      console.log('📱 Telefone do usuário extraído:', userPhone);
+      console.log('📱 Telefone do usuário:', userPhone);
 
-      // 2. Buscar telefone da Evolution
-      const evolutionPhone = await getEvolutionInstancePhone(instanceName);
-      if (!evolutionPhone) {
-        throw new Error('Não foi possível obter o telefone da Evolution');
+      // 2. Buscar telefone da instância (do BD ou API)
+      const instancePhone = await getInstancePhone(instanceName);
+      if (!instancePhone) {
+        throw new Error('Não foi possível obter o telefone da instância');
       }
-      
-      console.log('🤖 Telefone da Evolution obtido:', evolutionPhone);
+      console.log('🤖 Telefone da instância:', instancePhone);
 
       // 3. Buscar ou criar user_id
       const userId = await findOrCreateUser(userPhone);
       if (!userId) {
         throw new Error('Não foi possível obter user_id');
       }
-      
-      console.log('👤 User ID obtido:', userId);
+      console.log('👤 User ID:', userId);
 
-      // 4. Criar chave concatenada
-      const concatenatedKey = `${userPhone}_${evolutionPhone}`;
-      console.log('🔑 Chave concatenada criada:', concatenatedKey);
+      // 4. Criar chave de conversa: user_id_telefone_instancia
+      const conversationKey = createConversationKey(userId, instancePhone);
+      console.log('🔑 Chave da conversa:', conversationKey);
 
-      // 5. Criar objeto com todos os dados
-      const newPhoneData: PhoneData = {
+      // 5. Criar objeto com dados processados
+      const processedData: ProcessedMessageData = {
         user_phone: userPhone,
-        evolution_phone: evolutionPhone,
-        concatenated_key: concatenatedKey,
         user_id: userId,
+        instance_phone: instancePhone,
+        conversation_key: conversationKey,
       };
 
-      console.log('📦 Dados finais do telefone:', newPhoneData);
-
-      // 6. Salvar no Supabase
-      const saved = await savePhoneKey(newPhoneData);
-      
-      if (saved) {
-        setPhoneData(newPhoneData);
-        
-        toast({
-          title: "Telefones processados!",
-          description: `Chave criada: ${concatenatedKey}`,
-        });
-        
-        return newPhoneData;
-      } else {
-        throw new Error('Erro ao salvar dados no Supabase');
-      }
-
-    } catch (error) {
-      console.error('❌ Erro ao processar telefones:', error);
+      console.log('📦 Dados processados:', processedData);
+      setMessageData(processedData);
       
       toast({
-        title: "Erro ao processar telefones",
+        title: "Mensagem processada!",
+        description: `Chave: ${conversationKey}`,
+      });
+      
+      return processedData;
+
+    } catch (error) {
+      console.error('❌ Erro ao processar mensagem:', error);
+      
+      toast({
+        title: "Erro ao processar mensagem",
         description: error instanceof Error ? error.message : 'Erro desconhecido',
         variant: "destructive",
       });
@@ -212,11 +148,10 @@ export const usePhoneManager = () => {
   };
 
   return {
-    phoneData,
+    messageData,
     isProcessing,
-    processPhoneData,
+    processMessage,
     extractPhoneFromWhatsApp,
-    getEvolutionInstancePhone,
     findOrCreateUser,
   };
 };

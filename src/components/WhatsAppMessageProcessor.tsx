@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Phone, MessageCircle, Key, User } from 'lucide-react';
+import { Phone, MessageCircle, Key, User, Database } from 'lucide-react';
 import { usePhoneManager } from '@/hooks/usePhoneManager';
+import { useConversationManager } from '@/hooks/useConversationManager';
 
 interface WhatsAppMessage {
   from: string;
@@ -15,7 +16,7 @@ interface WhatsAppMessage {
 interface WhatsAppMessageProcessorProps {
   message?: WhatsAppMessage;
   instanceName: string;
-  onProcessed?: (phoneData: any) => void;
+  onProcessed?: (messageData: any) => void;
 }
 
 const WhatsAppMessageProcessor = ({ 
@@ -23,7 +24,8 @@ const WhatsAppMessageProcessor = ({
   instanceName,
   onProcessed 
 }: WhatsAppMessageProcessorProps) => {
-  const { phoneData, isProcessing, processPhoneData } = usePhoneManager();
+  const { messageData, isProcessing, processMessage } = usePhoneManager();
+  const { saveConversation } = useConversationManager();
   const [lastProcessedMessage, setLastProcessedMessage] = useState<string>('');
 
   // Processar automaticamente quando uma nova mensagem chegar
@@ -35,20 +37,31 @@ const WhatsAppMessageProcessor = ({
   }, [message]);
 
   const handleProcessMessage = async (whatsappMessage: WhatsAppMessage) => {
-    console.log('📨 Nova mensagem de consulta recebida:', whatsappMessage);
+    console.log('📨 Nova mensagem recebida:', whatsappMessage);
     
-    const result = await processPhoneData(whatsappMessage, instanceName);
+    const result = await processMessage(whatsappMessage, instanceName);
     
-    if (result && onProcessed) {
-      onProcessed(result);
+    if (result) {
+      // Salvar a conversa
+      await saveConversation({
+        user_id: result.user_id,
+        user_phone: result.user_phone,
+        instance_phone: result.instance_phone,
+        conversation_key: result.conversation_key,
+        message: whatsappMessage.message,
+        bot_response: 'Mensagem processada pelo sistema',
+      });
+
+      if (onProcessed) {
+        onProcessed(result);
+      }
     }
   };
 
-  const handleManualProcess = () => {
-    // Para teste manual
+  const handleManualTest = () => {
     const testMessage: WhatsAppMessage = {
-      from: '5511999999999', // Telefone de teste
-      message: 'Mensagem de teste',
+      from: '5511999999999',
+      message: 'Mensagem de teste do sistema',
       timestamp: new Date().toISOString(),
       instanceName: instanceName,
     };
@@ -61,7 +74,7 @@ const WhatsAppMessageProcessor = ({
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <MessageCircle className="h-5 w-5" />
-          <span>Processamento de Mensagens WhatsApp</span>
+          <span>Sistema de Conversas WhatsApp</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -69,60 +82,61 @@ const WhatsAppMessageProcessor = ({
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-blue-700">Processando telefones...</span>
+              <span className="text-blue-700">Processando mensagem...</span>
             </div>
           </div>
         )}
 
-        {phoneData && (
+        {messageData && (
           <div className="bg-green-50 p-4 rounded-lg space-y-3">
             <h4 className="font-semibold text-green-800 flex items-center space-x-2">
-              <Key className="h-4 w-4" />
-              <span>Dados Processados</span>
+              <Database className="h-4 w-4" />
+              <span>Conversa Processada</span>
             </h4>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
               <div className="flex items-center space-x-2">
                 <Phone className="h-4 w-4 text-green-600" />
-                <span><strong>Tel. Usuário:</strong> {phoneData.user_phone}</span>
+                <span><strong>Tel. Usuário:</strong> {messageData.user_phone}</span>
               </div>
               
               <div className="flex items-center space-x-2">
                 <MessageCircle className="h-4 w-4 text-green-600" />
-                <span><strong>Tel. Evolution:</strong> {phoneData.evolution_phone}</span>
+                <span><strong>Tel. Instância:</strong> {messageData.instance_phone}</span>
               </div>
               
               <div className="flex items-center space-x-2">
                 <User className="h-4 w-4 text-green-600" />
-                <span><strong>User ID:</strong> {phoneData.user_id.substring(0, 8)}...</span>
+                <span><strong>User ID:</strong> {messageData.user_id.substring(0, 8)}...</span>
               </div>
               
               <div className="flex items-center space-x-2 md:col-span-2">
                 <Key className="h-4 w-4 text-green-600" />
-                <span><strong>Chave:</strong> <code className="bg-white px-2 py-1 rounded text-xs">{phoneData.concatenated_key}</code></span>
+                <span><strong>Chave Conversa:</strong> <code className="bg-white px-2 py-1 rounded text-xs">{messageData.conversation_key}</code></span>
               </div>
             </div>
           </div>
         )}
 
         <div className="border-t pt-4">
-          <h5 className="font-medium mb-2">Como funciona:</h5>
+          <h5 className="font-medium mb-2">Novo Sistema de Conversas:</h5>
           <ol className="text-sm text-gray-600 space-y-1">
-            <li>1. 📱 Captura o telefone do usuário da mensagem WhatsApp</li>
-            <li>2. 🤖 Busca o telefone da instância Evolution ({instanceName})</li>
-            <li>3. 👤 Encontra ou cria o user_id no Supabase</li>
-            <li>4. 🔑 Cria chave única: telefone_usuario_telefone_evolution</li>
-            <li>5. 💾 Salva/atualiza no Supabase para consultas futuras</li>
+            <li>1. 📱 Captura telefone do usuário da mensagem</li>
+            <li>2. 🤖 Busca/salva telefone da instância ({instanceName})</li>
+            <li>3. 👤 Associa ao user_id correto</li>
+            <li>4. 🔑 Cria chave: user_id_telefone_instancia</li>
+            <li>5. 💾 Salva conversa com segurança total</li>
+            <li>6. 🔒 Impede vazamento entre usuários</li>
           </ol>
         </div>
 
         <Button 
-          onClick={handleManualProcess}
+          onClick={handleManualTest}
           disabled={isProcessing}
           className="w-full"
           variant="outline"
         >
-          {isProcessing ? 'Processando...' : 'Testar Processamento Manual'}
+          {isProcessing ? 'Processando...' : 'Testar Sistema Manual'}
         </Button>
       </CardContent>
     </Card>
