@@ -47,16 +47,14 @@ export const useInstancePhoneManager = () => {
     try {
       console.log('💾 Salvando telefone da instância:', { instanceName, phoneNumber });
       
+      // Usar a tabela chatbot_configs que já existe
       const { data, error } = await supabase
-        .from('telefone_instancia')
-        .upsert({
-          instance_name: instanceName,
+        .from('chatbot_configs')
+        .update({
           phone_number: phoneNumber,
-          is_active: true,
           updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'instance_name'
         })
+        .eq('evo_instance_id', instanceName)
         .select()
         .single();
 
@@ -66,7 +64,18 @@ export const useInstancePhoneManager = () => {
       }
 
       console.log('✅ Telefone da instância salvo:', data);
-      setInstancePhone(data);
+      
+      // Mapear para a interface InstancePhone
+      const mappedData: InstancePhone = {
+        id: data.id,
+        instance_name: data.evo_instance_id || instanceName,
+        phone_number: data.phone_number || phoneNumber,
+        is_active: data.is_active || true,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      
+      setInstancePhone(mappedData);
       return true;
     } catch (error) {
       console.error('💥 Erro ao salvar telefone da instância:', error);
@@ -78,11 +87,11 @@ export const useInstancePhoneManager = () => {
     try {
       console.log('🔍 Buscando telefone da instância:', instanceName);
       
-      // Primeiro tentar buscar no banco de dados
+      // Buscar na tabela chatbot_configs
       const { data, error } = await supabase
-        .from('telefone_instancia')
+        .from('chatbot_configs')
         .select('*')
-        .eq('instance_name', instanceName)
+        .eq('evo_instance_id', instanceName)
         .eq('is_active', true)
         .single();
 
@@ -91,9 +100,20 @@ export const useInstancePhoneManager = () => {
         return null;
       }
 
-      if (data) {
+      if (data && data.phone_number) {
         console.log('✅ Telefone da instância encontrado no BD:', data.phone_number);
-        setInstancePhone(data);
+        
+        // Mapear para a interface InstancePhone
+        const mappedData: InstancePhone = {
+          id: data.id,
+          instance_name: data.evo_instance_id || instanceName,
+          phone_number: data.phone_number,
+          is_active: data.is_active || true,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+        };
+        
+        setInstancePhone(mappedData);
         return data.phone_number;
       }
 
