@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -100,11 +99,12 @@ export const usePhoneManager = () => {
 
   const savePhoneKey = async (phoneData: PhoneData): Promise<boolean> => {
     try {
-      // Salvar na tabela mensagens ou criar uma tabela específica para chaves
+      // Salvar na tabela contacts com todos os campos obrigatórios
       const { error } = await supabase
         .from('contacts')
         .upsert({
           user_id: phoneData.user_id,
+          name: `Usuário ${phoneData.user_phone}`, // Campo obrigatório
           phone: phoneData.user_phone,
           notes: `Chave: ${phoneData.concatenated_key}`,
           updated_at: new Date().toISOString(),
