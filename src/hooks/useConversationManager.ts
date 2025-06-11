@@ -3,7 +3,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ConversationData {
-  user_id: string;
+  instance_id: string; // ID real da instância (agora usado como user_id)
   user_phone: string;
   instance_phone: string;
   conversation_key: string;
@@ -14,26 +14,26 @@ interface ConversationData {
 export const useConversationManager = () => {
   const { toast } = useToast();
 
-  const createConversationKey = (userId: string, instancePhone: string): string => {
-    // Formato: user_id_telefone_instancia
-    return `${userId}_${instancePhone}`;
+  const createConversationKey = (instanceId: string, userPhone: string): string => {
+    // Formato: instance_id_telefone_usuario
+    return `${instanceId}_${userPhone}`;
   };
 
   const saveConversation = async (conversationData: ConversationData) => {
     try {
-      console.log('💾 Salvando conversa:', conversationData);
+      console.log('💾 Salvando conversa com INSTANCE_ID como USER_ID:', conversationData);
       
-      // Verificar se user_id é um UUID válido
-      if (!conversationData.user_id || conversationData.user_id.length !== 36) {
-        throw new Error(`user_id inválido: ${conversationData.user_id}`);
+      // Verificar se instance_id é válido e não é um valor genérico
+      if (!conversationData.instance_id || conversationData.instance_id === '00000000' || conversationData.instance_id.length < 3) {
+        throw new Error(`Instance ID inválido: ${conversationData.instance_id}`);
       }
 
-      // Salvar na tabela mensagens com a nova estrutura
+      // Salvar na tabela mensagens usando o INSTANCE_ID como USER_ID
       const { data, error } = await supabase
         .from('mensagens')
         .insert({
-          user_id: conversationData.user_id, // UUID do usuário
-          telefone: conversationData.conversation_key, // Chave: user_id_telefone_instancia
+          user_id: conversationData.instance_id, // INSTANCE_ID usado como USER_ID
+          telefone: conversationData.conversation_key, // Chave: instance_id_telefone_usuario  
           user_message: conversationData.message,
           bot_message: conversationData.bot_response || 'Processando...',
           message_type: 'text',
@@ -47,11 +47,12 @@ export const useConversationManager = () => {
         throw error;
       }
 
-      console.log('✅ Conversa salva com sucesso:', data);
+      console.log('✅ Conversa salva com INSTANCE_ID como USER_ID:', data);
+      console.log('🎯 USER_ID utilizado:', conversationData.instance_id);
       
       toast({
         title: "Conversa salva!",
-        description: `Chave: ${conversationData.conversation_key}`,
+        description: `Instance ID: ${conversationData.instance_id} | Chave: ${conversationData.conversation_key}`,
       });
 
       return data;
@@ -68,14 +69,14 @@ export const useConversationManager = () => {
     }
   };
 
-  const getConversationsByUserId = async (userId: string) => {
+  const getConversationsByInstanceId = async (instanceId: string) => {
     try {
-      console.log('🔍 Buscando conversas do usuário:', userId);
+      console.log('🔍 Buscando conversas do INSTANCE_ID:', instanceId);
       
       const { data, error } = await supabase
         .from('mensagens')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', instanceId) // Buscar pelo INSTANCE_ID como USER_ID
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -83,7 +84,7 @@ export const useConversationManager = () => {
         return [];
       }
 
-      console.log(`✅ Encontradas ${data?.length || 0} mensagens para o usuário`);
+      console.log(`✅ Encontradas ${data?.length || 0} mensagens para INSTANCE_ID: ${instanceId}`);
       return data || [];
     } catch (error) {
       console.error('💥 Erro ao buscar conversas:', error);
@@ -114,7 +115,7 @@ export const useConversationManager = () => {
   return {
     createConversationKey,
     saveConversation,
-    getConversationsByUserId,
+    getConversationsByInstanceId,
     getConversationsByKey,
   };
 };

@@ -42,9 +42,9 @@ const WhatsAppMessageProcessor = ({
     const result = await processMessage(whatsappMessage, instanceName);
     
     if (result) {
-      // Salvar a conversa
+      // Salvar a conversa usando o INSTANCE_ID como USER_ID
       await saveConversation({
-        user_id: result.user_id,
+        instance_id: result.instance_id, // ID real da instância
         user_phone: result.user_phone,
         instance_phone: result.instance_phone,
         conversation_key: result.conversation_key,
@@ -107,7 +107,7 @@ const WhatsAppMessageProcessor = ({
               
               <div className="flex items-center space-x-2">
                 <User className="h-4 w-4 text-green-600" />
-                <span><strong>User ID:</strong> {messageData.user_id.substring(0, 8)}...</span>
+                <span><strong>Instance ID:</strong> {messageData.instance_id}</span>
               </div>
               
               <div className="flex items-center space-x-2 md:col-span-2">
@@ -119,14 +119,14 @@ const WhatsAppMessageProcessor = ({
         )}
 
         <div className="border-t pt-4">
-          <h5 className="font-medium mb-2">Novo Sistema de Conversas:</h5>
+          <h5 className="font-medium mb-2">Sistema Atualizado com Instance ID Real:</h5>
           <ol className="text-sm text-gray-600 space-y-1">
             <li>1. 📱 Captura telefone do usuário da mensagem</li>
-            <li>2. 🤖 Busca/salva telefone da instância ({instanceName})</li>
-            <li>3. 👤 Associa ao user_id correto</li>
-            <li>4. 🔑 Cria chave: user_id_telefone_instancia</li>
-            <li>5. 💾 Salva conversa com segurança total</li>
-            <li>6. 🔒 Impede vazamento entre usuários</li>
+            <li>2. 🆔 Busca INSTANCE_ID real da Evolution API</li>
+            <li>3. 📞 Captura telefone da instância conectada</li>
+            <li>4. 💾 Usa INSTANCE_ID como USER_ID no Supabase</li>
+            <li>5. 🔑 Cria chave: instance_id_telefone_usuario</li>
+            <li>6. 🎯 N8N pode usar o Instance ID como referência</li>
           </ol>
         </div>
 
@@ -136,7 +136,7 @@ const WhatsAppMessageProcessor = ({
           className="w-full"
           variant="outline"
         >
-          {isProcessing ? 'Processando...' : 'Testar Sistema Manual'}
+          {isProcessing ? 'Processando...' : 'Testar Sistema com Instance ID'}
         </Button>
       </CardContent>
     </Card>
