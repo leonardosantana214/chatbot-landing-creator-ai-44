@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useEvolutionApi } from '@/hooks/useEvolutionApi';
 import DashboardTabs from '../components/DashboardTabs';
+import { useSupabaseInstanceFixer } from '@/hooks/useSupabaseInstanceFixer';
 
 interface DashboardStats {
   totalMessages: number;
@@ -26,6 +26,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { checkInstanceStatus, getQRCode, disconnectInstance } = useEvolutionApi();
+  const { runFullFix } = useSupabaseInstanceFixer();
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [qrCode, setQrCode] = useState<string>('');
@@ -330,6 +331,14 @@ const Dashboard = () => {
     }
   };
 
+  const handleFixSupabaseData = async () => {
+    await runFullFix();
+    // Recarregar dados após correção
+    setTimeout(() => {
+      checkChatbotConfiguredAndRedirect();
+    }, 2000);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -353,6 +362,13 @@ const Dashboard = () => {
               <h1 className="text-xl font-bold text-black">Dashboard - Techcorps</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <Button
+                variant="outline"
+                onClick={handleFixSupabaseData}
+                className="border-blue-300 text-blue-700 hover:bg-blue-100"
+              >
+                🔧 Corrigir Instance IDs
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => navigate('/company-info')}
