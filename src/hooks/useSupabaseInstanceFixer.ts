@@ -22,6 +22,8 @@ export const useSupabaseInstanceFixer = () => {
         },
       });
 
+      console.log('📡 Status da resposta Evolution:', response.status);
+
       if (response.ok) {
         const data = await response.json();
         console.log('📡 Dados completos da Evolution:', data);
@@ -45,15 +47,39 @@ export const useSupabaseInstanceFixer = () => {
         console.log('✅ Instance ID real encontrado:', instanceId);
         console.log('✅ Telefone encontrado:', cleanPhone);
         
+        // MOSTRAR NA TELA OS DADOS PUXADOS
+        toast({
+          title: "📡 Dados da Evolution API",
+          description: `Instance ID: ${instanceId} | Telefone: ${cleanPhone}`,
+          duration: 8000,
+        });
+        
         return {
           instanceId: instanceId,
           phone: cleanPhone
         };
+      } else {
+        console.error('❌ Erro na API Evolution:', response.status);
+        const errorText = await response.text();
+        console.error('❌ Erro detalhado:', errorText);
+        
+        toast({
+          title: "❌ Erro na Evolution API",
+          description: `Status: ${response.status} - ${errorText}`,
+          variant: "destructive",
+          duration: 8000,
+        });
       }
       
       return null;
     } catch (error) {
       console.error('❌ Erro ao buscar dados da Evolution:', error);
+      toast({
+        title: "❌ Erro de conexão",
+        description: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        variant: "destructive",
+        duration: 8000,
+      });
       return null;
     }
   };
@@ -80,6 +106,11 @@ export const useSupabaseInstanceFixer = () => {
 
       if (fetchError) {
         console.error('❌ Erro ao buscar configurações:', fetchError);
+        toast({
+          title: "❌ Erro no Supabase",
+          description: `Erro: ${fetchError.message}`,
+          variant: "destructive",
+        });
         return false;
       }
 
@@ -94,6 +125,13 @@ export const useSupabaseInstanceFixer = () => {
 
       console.log(`🔧 Encontradas ${userConfigs.length} configurações do usuário`);
       
+      // MOSTRAR NA TELA AS CONFIGURAÇÕES ENCONTRADAS
+      toast({
+        title: "📋 Configurações encontradas",
+        description: `${userConfigs.length} configurações ativas para o usuário`,
+        duration: 5000,
+      });
+      
       let fixedCount = 0;
       
       for (const config of userConfigs) {
@@ -106,13 +144,27 @@ export const useSupabaseInstanceFixer = () => {
         
         console.log(`🔧 Processando instância: ${instanceName}`);
         
+        // MOSTRAR NA TELA QUAL INSTÂNCIA ESTÁ SENDO PROCESSADA
+        toast({
+          title: "🔧 Processando instância",
+          description: `Instância: ${instanceName}`,
+          duration: 3000,
+        });
+        
         // Buscar dados reais da Evolution
         const evolutionData = await getEvolutionInstanceData(instanceName);
         
-        if (evolutionData && evolutionData.instanceId && evolutionData.instanceId !== instanceName) {
+        if (evolutionData && evolutionData.instanceId) {
           const { instanceId, phone } = evolutionData;
           
-          console.log(`🔄 Atualizando user_id de ${user.id} para ${instanceId}`);
+          console.log(`🔄 Dados obtidos - ID: ${instanceId}, Tel: ${phone}`);
+          
+          // MOSTRAR OS DADOS QUE SERÃO SALVOS
+          toast({
+            title: "💾 Salvando dados",
+            description: `Novo User ID: ${instanceId} | Tel: ${phone}`,
+            duration: 5000,
+          });
           
           // Atualizar configuração com o instance_id real como user_id
           const { error: updateError } = await supabase
@@ -126,6 +178,11 @@ export const useSupabaseInstanceFixer = () => {
 
           if (updateError) {
             console.error(`❌ Erro ao atualizar configuração ${config.id}:`, updateError);
+            toast({
+              title: "❌ Erro ao atualizar",
+              description: `Erro: ${updateError.message}`,
+              variant: "destructive",
+            });
           } else {
             console.log(`✅ Configuração atualizada: user_id agora é ${instanceId}`);
             
@@ -147,7 +204,12 @@ export const useSupabaseInstanceFixer = () => {
             fixedCount++;
           }
         } else {
-          console.log(`⚠️ Instance ID não alterado para: ${instanceName}`);
+          console.log(`❌ Não foi possível obter dados para: ${instanceName}`);
+          toast({
+            title: "❌ Falha ao obter dados",
+            description: `Instância: ${instanceName} - dados não encontrados`,
+            variant: "destructive",
+          });
         }
       }
       
@@ -158,8 +220,9 @@ export const useSupabaseInstanceFixer = () => {
         });
       } else {
         toast({
-          title: "ℹ️ Nenhuma correção necessária",
-          description: "Seus dados já estão corretos.",
+          title: "❌ Nenhuma correção aplicada",
+          description: "Não foi possível corrigir nenhum registro.",
+          variant: "destructive",
         });
       }
       
@@ -169,7 +232,7 @@ export const useSupabaseInstanceFixer = () => {
       console.error('💥 Erro ao corrigir dados do usuário:', error);
       toast({
         title: "❌ Erro na correção",
-        description: "Erro ao corrigir seus registros no Supabase.",
+        description: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         variant: "destructive",
       });
       return false;
