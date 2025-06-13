@@ -66,7 +66,7 @@ export const useSupabaseInstanceFixer = () => {
       const { data: invalidConfigs, error: fetchError } = await supabase
         .from('chatbot_configs')
         .select('*')
-        .or('user_id.eq.00000000,user_id.is.null,user_id.eq.');
+        .or('user_id.eq.00000000-0000-0000-0000-000000000000,user_id.is.null,user_id.eq.');
 
       if (fetchError) {
         console.error('❌ Erro ao buscar configurações inválidas:', fetchError);
@@ -77,7 +77,7 @@ export const useSupabaseInstanceFixer = () => {
         console.log('✅ Nenhuma configuração inválida encontrada');
         toast({
           title: "✅ Tudo ok!",
-          description: "Não há registros com instance_id inválido para corrigir.",
+          description: "Não há registros com user_id inválido para corrigir.",
         });
         return true;
       }
@@ -99,14 +99,17 @@ export const useSupabaseInstanceFixer = () => {
         // Buscar dados reais da Evolution
         const evolutionData = await getEvolutionInstanceData(instanceName);
         
-        if (evolutionData && evolutionData.instanceId && evolutionData.instanceId !== instanceName) {
+        if (evolutionData && evolutionData.instanceId) {
           const { instanceId, phone } = evolutionData;
           
-          // Atualizar a configuração com o instance_id real
+          // Gerar um UUID único baseado no instanceId para usar como user_id
+          const userIdFromInstance = `${instanceId}-evolution-instance`;
+          
+          // Atualizar a configuração com o user_id baseado no instance_id
           const { error: updateError } = await supabase
             .from('chatbot_configs')
             .update({
-              user_id: instanceId, // USAR O INSTANCE_ID REAL COMO USER_ID
+              user_id: userIdFromInstance, // USER_ID baseado no INSTANCE_ID
               phone_number: phone,
               updated_at: new Date().toISOString(),
             })
@@ -115,18 +118,18 @@ export const useSupabaseInstanceFixer = () => {
           if (updateError) {
             console.error(`❌ Erro ao atualizar configuração ${config.id}:`, updateError);
           } else {
-            console.log(`✅ Configuração ${config.id} corrigida: ${instanceName} -> ${instanceId}`);
+            console.log(`✅ Configuração ${config.id} corrigida: ${instanceName} -> ${userIdFromInstance}`);
             fixedCount++;
           }
         } else {
-          console.log(`⚠️ Não foi possível obter instance_id real para: ${instanceName}`);
+          console.log(`⚠️ Não foi possível obter dados reais para: ${instanceName}`);
         }
       }
       
       if (fixedCount > 0) {
         toast({
           title: "🔧 Correções aplicadas!",
-          description: `${fixedCount} registros foram corrigidos com instance_id real.`,
+          description: `${fixedCount} registros foram corrigidos com IDs reais.`,
         });
       }
       
@@ -151,7 +154,7 @@ export const useSupabaseInstanceFixer = () => {
       const { data: invalidMessages, error: fetchError } = await supabase
         .from('mensagens')
         .select('*')
-        .or('user_id.eq.00000000,user_id.is.null,user_id.eq.');
+        .or('user_id.eq.00000000-0000-0000-0000-000000000000,user_id.is.null,user_id.eq.');
 
       if (fetchError) {
         console.error('❌ Erro ao buscar mensagens inválidas:', fetchError);
@@ -175,24 +178,24 @@ export const useSupabaseInstanceFixer = () => {
           continue;
         }
         
-        // Extrair instance_id da chave de conversa (formato: instance_id_telefone)
-        const instanceId = conversationKey.split('_')[0];
+        // Extrair instance_name da chave de conversa (pode estar no formato: instance_name_telefone)
+        const instanceName = conversationKey.split('_')[0];
         
-        if (!instanceId || instanceId === '00000000') {
-          console.log('⚠️ Instance_id inválido na chave de conversa, pulando...');
+        if (!instanceName) {
+          console.log('⚠️ Instance_name inválido na chave de conversa, pulando...');
           continue;
         }
         
-        // Buscar configuração válida para esse instance_id
+        // Buscar configuração válida para esse instance_name
         const { data: configData, error: configError } = await supabase
           .from('chatbot_configs')
           .select('user_id')
-          .eq('user_id', instanceId)
+          .eq('evo_instance_id', instanceName)
           .eq('is_active', true)
           .single();
 
         if (configError || !configData) {
-          console.log(`⚠️ Configuração não encontrada para instance_id: ${instanceId}`);
+          console.log(`⚠️ Configuração não encontrada para instance_name: ${instanceName}`);
           continue;
         }
         
@@ -200,7 +203,7 @@ export const useSupabaseInstanceFixer = () => {
         const { error: updateError } = await supabase
           .from('mensagens')
           .update({
-            user_id: instanceId,
+            user_id: configData.user_id,
             updated_at: new Date().toISOString(),
           })
           .eq('id', message.id);
@@ -208,7 +211,7 @@ export const useSupabaseInstanceFixer = () => {
         if (updateError) {
           console.error(`❌ Erro ao atualizar mensagem ${message.id}:`, updateError);
         } else {
-          console.log(`✅ Mensagem ${message.id} corrigida com user_id: ${instanceId}`);
+          console.log(`✅ Mensagem ${message.id} corrigida com user_id: ${configData.user_id}`);
           fixedCount++;
         }
       }
@@ -226,7 +229,7 @@ export const useSupabaseInstanceFixer = () => {
     
     toast({
       title: "🔧 Iniciando correção",
-      description: "Corrigindo registros com instance_id inválido...",
+      description: "Corrigindo registros com user_id inválido...",
     });
     
     // Primeiro corrigir as configurações
@@ -241,7 +244,7 @@ export const useSupabaseInstanceFixer = () => {
     
     toast({
       title: "✅ Correção concluída!",
-      description: "Todos os registros foram atualizados com instance_id real.",
+      description: "Todos os registros foram atualizados com IDs reais.",
     });
   };
 
