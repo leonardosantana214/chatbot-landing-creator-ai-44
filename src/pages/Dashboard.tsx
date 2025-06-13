@@ -26,7 +26,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { checkInstanceStatus, getQRCode, disconnectInstance } = useEvolutionApi();
-  const { runFullFix } = useSupabaseInstanceFixer();
+  const { fixCurrentUserData } = useSupabaseInstanceFixer();
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [qrCode, setQrCode] = useState<string>('');
@@ -332,7 +332,8 @@ const Dashboard = () => {
   };
 
   const handleFixSupabaseData = async () => {
-    await runFullFix();
+    console.log('🔧 Iniciando correção para o usuário logado...');
+    await fixCurrentUserData();
     // Recarregar dados após correção
     setTimeout(() => {
       checkChatbotConfiguredAndRedirect();

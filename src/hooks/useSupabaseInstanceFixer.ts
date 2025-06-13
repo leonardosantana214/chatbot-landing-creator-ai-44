@@ -1,9 +1,11 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useSupabaseInstanceFixer = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
@@ -24,7 +26,6 @@ export const useSupabaseInstanceFixer = () => {
         const data = await response.json();
         console.log('📡 Dados completos da Evolution:', data);
         
-        // Extrair o instance_id real
         const instanceId = data.instance?.instanceId || 
                           data.instanceId || 
                           data.instance?.id ||
@@ -32,7 +33,6 @@ export const useSupabaseInstanceFixer = () => {
                           data.instance?.key ||
                           instanceName;
         
-        // Extrair o telefone
         const evolutionPhone = data.instance?.phone || 
                               data.phone || 
                               data.instance?.number || 
@@ -58,35 +58,45 @@ export const useSupabaseInstanceFixer = () => {
     }
   };
 
-  const fixInvalidUserIds = async () => {
+  const fixCurrentUserData = async () => {
+    if (!user?.id) {
+      toast({
+        title: "❌ Erro",
+        description: "Usuário não está logado.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     try {
-      console.log('🔧 Iniciando correção dos user_ids inválidos...');
+      console.log('🔧 Corrigindo dados do usuário logado:', user.id);
       
-      // Buscar todos os registros com user_id inválido
-      const { data: invalidConfigs, error: fetchError } = await supabase
+      // Buscar configurações do usuário logado
+      const { data: userConfigs, error: fetchError } = await supabase
         .from('chatbot_configs')
         .select('*')
-        .or('user_id.eq.00000000-0000-0000-0000-000000000000,user_id.is.null,user_id.eq.');
+        .eq('user_id', user.id)
+        .eq('is_active', true);
 
       if (fetchError) {
-        console.error('❌ Erro ao buscar configurações inválidas:', fetchError);
+        console.error('❌ Erro ao buscar configurações:', fetchError);
         return false;
       }
 
-      if (!invalidConfigs || invalidConfigs.length === 0) {
-        console.log('✅ Nenhuma configuração inválida encontrada');
+      if (!userConfigs || userConfigs.length === 0) {
+        console.log('⚠️ Usuário não possui configurações ativas');
         toast({
-          title: "✅ Tudo ok!",
-          description: "Não há registros com user_id inválido para corrigir.",
+          title: "⚠️ Aviso",
+          description: "Você não possui configurações de chatbot ativas.",
         });
-        return true;
+        return false;
       }
 
-      console.log(`🔧 Encontradas ${invalidConfigs.length} configurações para corrigir`);
+      console.log(`🔧 Encontradas ${userConfigs.length} configurações do usuário`);
       
       let fixedCount = 0;
       
-      for (const config of invalidConfigs) {
+      for (const config of userConfigs) {
         const instanceName = config.evo_instance_id;
         
         if (!instanceName) {
@@ -94,22 +104,21 @@ export const useSupabaseInstanceFixer = () => {
           continue;
         }
         
-        console.log(`🔧 Corrigindo configuração para instância: ${instanceName}`);
+        console.log(`🔧 Processando instância: ${instanceName}`);
         
         // Buscar dados reais da Evolution
         const evolutionData = await getEvolutionInstanceData(instanceName);
         
-        if (evolutionData && evolutionData.instanceId) {
+        if (evolutionData && evolutionData.instanceId && evolutionData.instanceId !== instanceName) {
           const { instanceId, phone } = evolutionData;
           
-          // Gerar um UUID único baseado no instanceId para usar como user_id
-          const userIdFromInstance = `${instanceId}-evolution-instance`;
+          console.log(`🔄 Atualizando user_id de ${user.id} para ${instanceId}`);
           
-          // Atualizar a configuração com o user_id baseado no instance_id
+          // Atualizar configuração com o instance_id real como user_id
           const { error: updateError } = await supabase
             .from('chatbot_configs')
             .update({
-              user_id: userIdFromInstance, // USER_ID baseado no INSTANCE_ID
+              user_id: instanceId, // USAR INSTANCE_ID COMO USER_ID
               phone_number: phone,
               updated_at: new Date().toISOString(),
             })
@@ -118,140 +127,57 @@ export const useSupabaseInstanceFixer = () => {
           if (updateError) {
             console.error(`❌ Erro ao atualizar configuração ${config.id}:`, updateError);
           } else {
-            console.log(`✅ Configuração ${config.id} corrigida: ${instanceName} -> ${userIdFromInstance}`);
+            console.log(`✅ Configuração atualizada: user_id agora é ${instanceId}`);
+            
+            // Atualizar mensagens relacionadas
+            const { error: msgUpdateError } = await supabase
+              .from('mensagens')
+              .update({
+                user_id: instanceId,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('user_id', user.id);
+
+            if (msgUpdateError) {
+              console.error('❌ Erro ao atualizar mensagens:', msgUpdateError);
+            } else {
+              console.log('✅ Mensagens atualizadas com novo user_id');
+            }
+            
             fixedCount++;
           }
         } else {
-          console.log(`⚠️ Não foi possível obter dados reais para: ${instanceName}`);
+          console.log(`⚠️ Instance ID não alterado para: ${instanceName}`);
         }
       }
       
       if (fixedCount > 0) {
         toast({
-          title: "🔧 Correções aplicadas!",
-          description: `${fixedCount} registros foram corrigidos com IDs reais.`,
+          title: "🔧 Correção aplicada!",
+          description: `${fixedCount} registros foram corrigidos com Instance ID real.`,
+        });
+      } else {
+        toast({
+          title: "ℹ️ Nenhuma correção necessária",
+          description: "Seus dados já estão corretos.",
         });
       }
       
-      console.log(`✅ Correção concluída: ${fixedCount}/${invalidConfigs.length} registros corrigidos`);
+      console.log(`✅ Correção do usuário concluída: ${fixedCount} registros corrigidos`);
       return true;
     } catch (error) {
-      console.error('💥 Erro ao corrigir user_ids inválidos:', error);
+      console.error('💥 Erro ao corrigir dados do usuário:', error);
       toast({
         title: "❌ Erro na correção",
-        description: "Erro ao corrigir registros inválidos no Supabase.",
+        description: "Erro ao corrigir seus registros no Supabase.",
         variant: "destructive",
       });
       return false;
     }
   };
 
-  const fixInvalidMessages = async () => {
-    try {
-      console.log('🔧 Iniciando correção das mensagens com user_id inválido...');
-      
-      // Buscar mensagens com user_id inválido
-      const { data: invalidMessages, error: fetchError } = await supabase
-        .from('mensagens')
-        .select('*')
-        .or('user_id.eq.00000000-0000-0000-0000-000000000000,user_id.is.null,user_id.eq.');
-
-      if (fetchError) {
-        console.error('❌ Erro ao buscar mensagens inválidas:', fetchError);
-        return false;
-      }
-
-      if (!invalidMessages || invalidMessages.length === 0) {
-        console.log('✅ Nenhuma mensagem inválida encontrada');
-        return true;
-      }
-
-      console.log(`🔧 Encontradas ${invalidMessages.length} mensagens para corrigir`);
-      
-      let fixedCount = 0;
-      
-      for (const message of invalidMessages) {
-        const conversationKey = message.telefone;
-        
-        if (!conversationKey || !conversationKey.includes('_')) {
-          console.log('⚠️ Mensagem sem chave de conversa válida, pulando...');
-          continue;
-        }
-        
-        // Extrair instance_name da chave de conversa (pode estar no formato: instance_name_telefone)
-        const instanceName = conversationKey.split('_')[0];
-        
-        if (!instanceName) {
-          console.log('⚠️ Instance_name inválido na chave de conversa, pulando...');
-          continue;
-        }
-        
-        // Buscar configuração válida para esse instance_name
-        const { data: configData, error: configError } = await supabase
-          .from('chatbot_configs')
-          .select('user_id')
-          .eq('evo_instance_id', instanceName)
-          .eq('is_active', true)
-          .single();
-
-        if (configError || !configData) {
-          console.log(`⚠️ Configuração não encontrada para instance_name: ${instanceName}`);
-          continue;
-        }
-        
-        // Atualizar a mensagem com o user_id correto
-        const { error: updateError } = await supabase
-          .from('mensagens')
-          .update({
-            user_id: configData.user_id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', message.id);
-
-        if (updateError) {
-          console.error(`❌ Erro ao atualizar mensagem ${message.id}:`, updateError);
-        } else {
-          console.log(`✅ Mensagem ${message.id} corrigida com user_id: ${configData.user_id}`);
-          fixedCount++;
-        }
-      }
-      
-      console.log(`✅ Correção de mensagens concluída: ${fixedCount}/${invalidMessages.length} registros corrigidos`);
-      return true;
-    } catch (error) {
-      console.error('💥 Erro ao corrigir mensagens inválidas:', error);
-      return false;
-    }
-  };
-
-  const runFullFix = async () => {
-    console.log('🚀 Iniciando correção completa do Supabase...');
-    
-    toast({
-      title: "🔧 Iniciando correção",
-      description: "Corrigindo registros com user_id inválido...",
-    });
-    
-    // Primeiro corrigir as configurações
-    const configsFixed = await fixInvalidUserIds();
-    
-    if (configsFixed) {
-      // Depois corrigir as mensagens
-      await fixInvalidMessages();
-    }
-    
-    console.log('✅ Correção completa finalizada!');
-    
-    toast({
-      title: "✅ Correção concluída!",
-      description: "Todos os registros foram atualizados com IDs reais.",
-    });
-  };
-
   return {
-    fixInvalidUserIds,
-    fixInvalidMessages,
-    runFullFix,
+    fixCurrentUserData,
     getEvolutionInstanceData,
   };
 };
