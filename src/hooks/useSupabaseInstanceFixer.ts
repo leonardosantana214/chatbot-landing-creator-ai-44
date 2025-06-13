@@ -26,30 +26,63 @@ export const useSupabaseInstanceFixer = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('📡 Dados completos da Evolution:', data);
+        console.log('📡 DADOS COMPLETOS DA EVOLUTION:', JSON.stringify(data, null, 2));
         
-        const instanceId = data.instance?.instanceId || 
-                          data.instanceId || 
-                          data.instance?.id ||
-                          data.id ||
-                          data.instance?.key ||
-                          instanceName;
+        // Mostrar dados brutos na tela
+        toast({
+          title: "📡 DADOS BRUTOS DA EVOLUTION",
+          description: `Dados: ${JSON.stringify(data).substring(0, 200)}...`,
+          duration: 10000,
+        });
         
-        const evolutionPhone = data.instance?.phone || 
-                              data.phone || 
-                              data.instance?.number || 
-                              data.number ||
-                              data.instance?.phoneNumber ||
-                              '';
+        // Extrair instanceId - vamos tentar várias possibilidades
+        let instanceId = '';
+        
+        if (data.instance?.instanceId) {
+          instanceId = data.instance.instanceId;
+        } else if (data.instanceId) {
+          instanceId = data.instanceId;
+        } else if (data.instance?.id) {
+          instanceId = data.instance.id;
+        } else if (data.id) {
+          instanceId = data.id;
+        } else if (data.instance?.key) {
+          instanceId = data.instance.key;
+        } else if (data.key) {
+          instanceId = data.key;
+        } else if (data.instance?.instanceName) {
+          instanceId = data.instance.instanceName;
+        } else if (data.instanceName) {
+          instanceId = data.instanceName;
+        } else {
+          // Se não achou nada, usar o nome da instância mesmo
+          instanceId = instanceName;
+        }
+        
+        // Extrair telefone
+        let evolutionPhone = '';
+        if (data.instance?.phone) {
+          evolutionPhone = data.instance.phone;
+        } else if (data.phone) {
+          evolutionPhone = data.phone;
+        } else if (data.instance?.number) {
+          evolutionPhone = data.instance.number;
+        } else if (data.number) {
+          evolutionPhone = data.number;
+        } else if (data.instance?.phoneNumber) {
+          evolutionPhone = data.instance.phoneNumber;
+        } else if (data.phoneNumber) {
+          evolutionPhone = data.phoneNumber;
+        }
         
         const cleanPhone = evolutionPhone.replace(/\D/g, '');
         
-        console.log('✅ Instance ID real encontrado:', instanceId);
-        console.log('✅ Telefone encontrado:', cleanPhone);
+        console.log('✅ Instance ID extraído:', instanceId);
+        console.log('✅ Telefone extraído:', cleanPhone);
         
-        // MOSTRAR NA TELA OS DADOS PUXADOS
+        // MOSTRAR NA TELA OS DADOS EXTRAÍDOS
         toast({
-          title: "📡 Dados da Evolution API",
+          title: "🎯 DADOS EXTRAÍDOS",
           description: `Instance ID: ${instanceId} | Telefone: ${cleanPhone}`,
           duration: 8000,
         });
@@ -154,7 +187,7 @@ export const useSupabaseInstanceFixer = () => {
         // Buscar dados reais da Evolution
         const evolutionData = await getEvolutionInstanceData(instanceName);
         
-        if (evolutionData && evolutionData.instanceId) {
+        if (evolutionData) {
           const { instanceId, phone } = evolutionData;
           
           console.log(`🔄 Dados obtidos - ID: ${instanceId}, Tel: ${phone}`);
@@ -171,7 +204,7 @@ export const useSupabaseInstanceFixer = () => {
             .from('chatbot_configs')
             .update({
               user_id: instanceId, // USAR INSTANCE_ID COMO USER_ID
-              phone_number: phone,
+              phone_number: phone || null,
               updated_at: new Date().toISOString(),
             })
             .eq('id', config.id);
@@ -202,6 +235,13 @@ export const useSupabaseInstanceFixer = () => {
             }
             
             fixedCount++;
+            
+            // Mostrar sucesso individual
+            toast({
+              title: "✅ Registro corrigido!",
+              description: `Config ${config.id} atualizada com Instance ID: ${instanceId}`,
+              duration: 5000,
+            });
           }
         } else {
           console.log(`❌ Não foi possível obter dados para: ${instanceName}`);
