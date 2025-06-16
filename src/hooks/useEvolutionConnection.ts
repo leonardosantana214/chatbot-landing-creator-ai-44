@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +19,35 @@ export const useEvolutionConnection = () => {
 
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
+
+  const updateUserInstanceId = async (instanceName: string): Promise<boolean> => {
+    if (!user) {
+      console.error('❌ Usuário não autenticado');
+      return false;
+    }
+
+    try {
+      console.log('🔄 Atualizando instance_id nos metadados do usuário...');
+      
+      // Atualizar os metadados do usuário com o instance_id
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          instance_id: instanceName
+        }
+      });
+
+      if (error) {
+        console.error('❌ Erro ao atualizar metadados do usuário:', error);
+        return false;
+      }
+
+      console.log('✅ Instance ID salvo nos metadados do usuário:', instanceName);
+      return true;
+    } catch (error) {
+      console.error('💥 Erro ao atualizar instance_id do usuário:', error);
+      return false;
+    }
+  };
 
   const fetchInstanceDetails = async (instanceName: string): Promise<EvolutionInstanceData | null> => {
     try {
@@ -253,13 +281,19 @@ export const useEvolutionConnection = () => {
 
       console.log('✅ Instance ID real capturado:', instanceData.instanceId);
       
-      // 3. Obter QR Code
+      // 3. Salvar instance_id nos metadados do usuário
+      const userUpdated = await updateUserInstanceId(instanceData.instanceName);
+      if (!userUpdated) {
+        console.warn('⚠️ Falha ao atualizar instance_id do usuário, mas continuando...');
+      }
+      
+      // 4. Obter QR Code
       const qrCode = await getQRCode(instanceName);
       if (qrCode) {
         instanceData.qrCode = qrCode;
       }
 
-      // 4. Salvar no Supabase com o Instance ID REAL
+      // 5. Salvar no Supabase com o Instance ID REAL
       const saved = await saveToSupabase(instanceData, chatbotConfig);
       
       if (saved) {
@@ -267,7 +301,7 @@ export const useEvolutionConnection = () => {
         
         toast({
           title: "🎯 SUCESSO TOTAL!",
-          description: `Instance ID ${instanceData.instanceId} conectado e salvo!`,
+          description: `Instance ID ${instanceData.instanceId} conectado e salvo nos metadados do usuário!`,
           duration: 10000,
         });
         
