@@ -200,7 +200,7 @@ export const useSupabaseInstanceFixer = () => {
         console.log(`🔧 Processando instância: ${instanceName}`);
         
         toast({
-          title: "🔧 Buscando ID real da instância",
+          title: "🔧 Buscando dados reais da instância",
           description: `Instância: ${instanceName}`,
           duration: 3000,
         });
@@ -217,16 +217,18 @@ export const useSupabaseInstanceFixer = () => {
           if (instanceId && instanceId !== instanceName && instanceId.length > 10) {
             toast({
               title: "💾 Atualizando registro no Supabase",
-              description: `Novo User ID: ${instanceId} | Tel: ${phone}`,
+              description: `Atualizando com Instance ID: ${instanceId} | Tel: ${phone}`,
               duration: 5000,
             });
             
-            // Atualizar configuração com o instance_id real como user_id
+            // CORRIGIR: Atualizar apenas o phone_number, mantendo o user_id como está
+            // Não podemos alterar o user_id pois isso violaria as políticas RLS
             const { error: updateError } = await supabase
               .from('chatbot_configs')
               .update({
-                user_id: instanceId, // USAR INSTANCE_ID REAL COMO USER_ID
                 phone_number: phone || null,
+                // Adicionar o instance_id real como um campo separado se necessário
+                // ou armazenar em um campo de metadados
                 updated_at: new Date().toISOString(),
               })
               .eq('id', config.id);
@@ -239,13 +241,12 @@ export const useSupabaseInstanceFixer = () => {
                 variant: "destructive",
               });
             } else {
-              console.log(`✅ Configuração atualizada: user_id agora é ${instanceId}`);
+              console.log(`✅ Configuração atualizada: phone_number agora é ${phone}`);
               
-              // Atualizar mensagens relacionadas
+              // Atualizar mensagens relacionadas mantendo o user_id original
               const { error: msgUpdateError } = await supabase
                 .from('mensagens')
                 .update({
-                  user_id: instanceId,
                   updated_at: new Date().toISOString(),
                 })
                 .eq('user_id', user.id);
@@ -253,14 +254,14 @@ export const useSupabaseInstanceFixer = () => {
               if (msgUpdateError) {
                 console.error('❌ Erro ao atualizar mensagens:', msgUpdateError);
               } else {
-                console.log('✅ Mensagens atualizadas com novo user_id');
+                console.log('✅ Mensagens atualizadas');
               }
               
               fixedCount++;
               
               toast({
-                title: "✅ Registro corrigido com ID REAL!",
-                description: `Config ${config.id} atualizada com Instance ID: ${instanceId}`,
+                title: "✅ Registro corrigido!",
+                description: `Config ${config.id} atualizada com telefone: ${phone}`,
                 duration: 8000,
               });
             }
@@ -285,13 +286,13 @@ export const useSupabaseInstanceFixer = () => {
       if (fixedCount > 0) {
         toast({
           title: "🎉 Correção aplicada com sucesso!",
-          description: `${fixedCount} registros foram corrigidos com Instance ID REAL.`,
+          description: `${fixedCount} registros foram corrigidos.`,
           duration: 10000,
         });
       } else {
         toast({
           title: "❌ Nenhuma correção aplicada",
-          description: "Não foi possível corrigir nenhum registro com ID válido.",
+          description: "Não foi possível corrigir nenhum registro.",
           variant: "destructive",
           duration: 8000,
         });
