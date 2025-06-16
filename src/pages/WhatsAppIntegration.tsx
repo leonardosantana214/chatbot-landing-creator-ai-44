@@ -197,21 +197,18 @@ const WhatsAppIntegration = () => {
 
     try {
       console.log('💾 Salvando configuração no Supabase...');
-      console.log('🔑 Dados para salvar:', {
-        user_id: realInstanceId,
-        evo_instance_id: instanceName,
-        phone_number: instancePhone,
-        bot_name: chatbotData.nome_da_IA || 'Chatbot',
-        service_type: chatbotData.nicho || 'Geral',
-        tone: chatbotData.personalidade || 'Profissional'
-      });
       
-      // Primeiro verificar se já existe
-      const { data: existing } = await supabase
+      // Primeiro verificar se já existe configuração para esta instância
+      const { data: existing, error: searchError } = await supabase
         .from('chatbot_configs')
         .select('*')
         .eq('evo_instance_id', instanceName)
-        .single();
+        .maybeSingle();
+
+      if (searchError && searchError.code !== 'PGRST116') {
+        console.error('❌ Erro ao buscar registro existente:', searchError);
+        throw searchError;
+      }
 
       let result;
       
@@ -225,7 +222,7 @@ const WhatsAppIntegration = () => {
             phone_number: instancePhone,
             updated_at: new Date().toISOString(),
           })
-          .eq('evo_instance_id', instanceName)
+          .eq('id', existing.id)
           .select()
           .single();
 
@@ -235,20 +232,25 @@ const WhatsAppIntegration = () => {
         }
         result = data;
       } else {
-        // Criar novo registro
+        // Criar novo registro - usando dados válidos e obrigatórios
         console.log('🆕 Criando novo registro...');
+        
+        const configData = {
+          user_id: realInstanceId,
+          bot_name: chatbotData.nome_da_IA || 'Chatbot',
+          service_type: chatbotData.nicho || 'Geral',
+          tone: chatbotData.personalidade || 'Profissional',
+          evo_instance_id: instanceName,
+          phone_number: instancePhone,
+          is_active: true,
+          webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
+        };
+
+        console.log('📋 Dados para inserir:', configData);
+
         const { data, error } = await supabase
           .from('chatbot_configs')
-          .insert({
-            user_id: realInstanceId,
-            bot_name: chatbotData.nome_da_IA || 'Chatbot',
-            service_type: chatbotData.nicho || 'Geral',
-            tone: chatbotData.personalidade || 'Profissional',
-            evo_instance_id: instanceName,
-            phone_number: instancePhone,
-            is_active: true,
-            webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
-          })
+          .insert(configData)
           .select()
           .single();
 
