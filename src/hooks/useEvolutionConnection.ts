@@ -1,7 +1,7 @@
+
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface EvolutionInstanceData {
   instanceId: string;
@@ -15,39 +15,9 @@ export const useEvolutionConnection = () => {
   const [connectionData, setConnectionData] = useState<EvolutionInstanceData | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
 
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
-
-  const updateUserInstanceId = async (instanceName: string): Promise<boolean> => {
-    if (!user) {
-      console.error('❌ Usuário não autenticado');
-      return false;
-    }
-
-    try {
-      console.log('🔄 Atualizando instance_id nos metadados do usuário...');
-      
-      // Atualizar os metadados do usuário com o instance_id
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          instance_id: instanceName
-        }
-      });
-
-      if (error) {
-        console.error('❌ Erro ao atualizar metadados do usuário:', error);
-        return false;
-      }
-
-      console.log('✅ Instance ID salvo nos metadados do usuário:', instanceName);
-      return true;
-    } catch (error) {
-      console.error('💥 Erro ao atualizar instance_id do usuário:', error);
-      return false;
-    }
-  };
 
   const fetchInstanceDetails = async (instanceName: string): Promise<EvolutionInstanceData | null> => {
     try {
@@ -164,103 +134,7 @@ export const useEvolutionConnection = () => {
     }
   };
 
-  const saveToSupabase = async (instanceData: EvolutionInstanceData, chatbotConfig: any): Promise<boolean> => {
-    if (!user) {
-      console.error('❌ Usuário não autenticado');
-      return false;
-    }
-
-    try {
-      console.log('💾 Salvando configuração no Supabase...');
-      console.log('👤 User ID:', user.id);
-      console.log('🤖 Instance ID real:', instanceData.instanceId);
-      console.log('📞 Telefone da instância:', instanceData.phone);
-
-      // Verificar se já existe configuração
-      const { data: existing, error: searchError } = await supabase
-        .from('chatbot_configs')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('evo_instance_id', instanceData.instanceName)
-        .maybeSingle();
-
-      if (searchError) {
-        console.error('❌ Erro ao buscar configuração existente:', searchError);
-        return false;
-      }
-
-      const configData = {
-        user_id: user.id,
-        bot_name: chatbotConfig?.nome_da_IA || 'Chatbot',
-        service_type: chatbotConfig?.nicho || 'WhatsApp',
-        tone: chatbotConfig?.personalidade || 'Profissional',
-        evo_instance_id: instanceData.instanceName,
-        phone_number: instanceData.phone,
-        is_active: true,
-        webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceData.instanceName}`,
-        updated_at: new Date().toISOString(),
-      };
-
-      let result;
-      
-      if (existing) {
-        // Atualizar configuração existente
-        console.log('📝 Atualizando configuração existente...');
-        
-        const { data, error } = await supabase
-          .from('chatbot_configs')
-          .update(configData)
-          .eq('id', existing.id)
-          .select()
-          .single();
-
-        if (error) {
-          console.error('❌ Erro ao atualizar:', error);
-          return false;
-        }
-        result = data;
-      } else {
-        // Criar nova configuração
-        console.log('🆕 Criando nova configuração...');
-        
-        const { data, error } = await supabase
-          .from('chatbot_configs')
-          .insert(configData)
-          .select()
-          .single();
-
-        if (error) {
-          console.error('❌ Erro ao inserir:', error);
-          return false;
-        }
-        result = data;
-      }
-
-      console.log('✅ Configuração salva com sucesso:', result);
-      
-      toast({
-        title: "✅ Configuração Salva!",
-        description: `Instance ID: ${instanceData.instanceId} conectado ao usuário ${user.id}`,
-        duration: 5000,
-      });
-      
-      return true;
-    } catch (error) {
-      console.error('💥 Erro ao salvar no Supabase:', error);
-      return false;
-    }
-  };
-
   const connectInstance = async (instanceName: string, chatbotConfig: any): Promise<EvolutionInstanceData | null> => {
-    if (!user) {
-      toast({
-        title: "❌ Erro de Autenticação",
-        description: "Usuário não está logado",
-        variant: "destructive",
-      });
-      return null;
-    }
-
     setIsConnecting(true);
     
     try {
@@ -281,34 +155,21 @@ export const useEvolutionConnection = () => {
 
       console.log('✅ Instance ID real capturado:', instanceData.instanceId);
       
-      // 3. Salvar instance_id nos metadados do usuário
-      const userUpdated = await updateUserInstanceId(instanceData.instanceName);
-      if (!userUpdated) {
-        console.warn('⚠️ Falha ao atualizar instance_id do usuário, mas continuando...');
-      }
-      
-      // 4. Obter QR Code
+      // 3. Obter QR Code
       const qrCode = await getQRCode(instanceName);
       if (qrCode) {
         instanceData.qrCode = qrCode;
       }
 
-      // 5. Salvar no Supabase com o Instance ID REAL
-      const saved = await saveToSupabase(instanceData, chatbotConfig);
+      setConnectionData(instanceData);
       
-      if (saved) {
-        setConnectionData(instanceData);
-        
-        toast({
-          title: "🎯 SUCESSO TOTAL!",
-          description: `Instance ID ${instanceData.instanceId} conectado e salvo nos metadados do usuário!`,
-          duration: 10000,
-        });
-        
-        return instanceData;
-      } else {
-        throw new Error('Falha ao salvar configuração no Supabase');
-      }
+      toast({
+        title: "🎯 Instância Evolution criada!",
+        description: `Instance ID: ${instanceData.instanceId} pronto para uso!`,
+        duration: 5000,
+      });
+      
+      return instanceData;
 
     } catch (error) {
       console.error('💥 Erro no processo de conexão:', error);

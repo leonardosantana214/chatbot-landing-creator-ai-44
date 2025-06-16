@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Bot, CheckCircle, Lock } from 'lucide-react';
+import { ArrowLeft, Bot, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useN8nWebhook } from '@/hooks/useN8nWebhook';
+import { useCompleteRegistration } from '@/hooks/useCompleteRegistration';
 
 interface ChatbotConfig {
   nome_da_IA: string;
@@ -27,13 +27,11 @@ const ChatbotSetup = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { sendInstanceData } = useN8nWebhook();
+  const { registerUserComplete, loading } = useCompleteRegistration();
   const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [webhookSent, setWebhookSent] = useState(false); // Adicionar controle de envio
   
-  // Verificar se o pagamento foi confirmado
-  const paymentConfirmed = location.state?.paymentConfirmed || false;
+  // Obter dados do usuário do estado da navegação
+  const userData = location.state?.userData;
   
   const [config, setConfig] = useState<ChatbotConfig>({
     nome_da_IA: '',
@@ -48,6 +46,18 @@ const ChatbotSetup = () => {
     nome_instancia: ''
   });
 
+  // Verificar se temos dados do usuário
+  useEffect(() => {
+    if (!userData) {
+      toast({
+        title: "Dados necessários",
+        description: "Você precisa preencher os dados pessoais primeiro.",
+        variant: "destructive",
+      });
+      navigate('/payment');
+    }
+  }, [userData, navigate, toast]);
+
   // Gerar nome da instância automaticamente (sem espaços)
   useEffect(() => {
     if (config.nome_da_IA && config.empresa) {
@@ -61,17 +71,6 @@ const ChatbotSetup = () => {
     }
   }, [config.nome_da_IA, config.empresa]);
 
-  useEffect(() => {
-    if (!paymentConfirmed) {
-      toast({
-        title: "Pagamento necessário",
-        description: "Você precisa confirmar o pagamento antes de criar sua conta.",
-        variant: "destructive",
-      });
-      navigate('/pricing-selection');
-    }
-  }, [paymentConfirmed, navigate, toast]);
-
   const handleNext = () => {
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
@@ -81,77 +80,39 @@ const ChatbotSetup = () => {
   };
 
   const handleFinish = async () => {
-    if (!paymentConfirmed) {
+    if (!userData) {
       toast({
         title: "Erro",
-        description: "Pagamento não confirmado.",
+        description: "Dados do usuário não encontrados.",
         variant: "destructive",
       });
       return;
     }
 
-    // Evitar envios duplicados
-    if (webhookSent) {
-      console.log('Webhook já foi enviado, navegando para integração WhatsApp...');
-      navigate('/whatsapp-integration', {
-        state: {
-          instanceName: config.nome_instancia,
-          chatbotData: config
-        }
-      });
-      return;
-    }
+    console.log('🎯 Iniciando cadastro completo...');
+    console.log('👤 Dados do usuário:', userData);
+    console.log('🤖 Configuração do chatbot:', config);
 
-    setLoading(true);
-
-    try {
-      console.log('Enviando dados da instância para webhook...');
-      await sendInstanceData(config.nome_instancia, config);
-      setWebhookSent(true); // Marcar como enviado
-
-      toast({
-        title: "Chatbot criado com sucesso!",
-        description: `Instância "${config.nome_instancia}" criada! Prosseguindo para integração WhatsApp...`,
-      });
-      
+    const result = await registerUserComplete(userData, config);
+    
+    if (result.success) {
       setTimeout(() => {
-        navigate('/whatsapp-integration', {
-          state: {
-            instanceName: config.nome_instancia,
-            chatbotData: config
-          }
-        });
+        navigate('/dashboard');
       }, 2000);
-    } catch (error) {
-      console.error('Erro ao criar chatbot:', error);
-      toast({
-        title: "Chatbot criado!",
-        description: "Prosseguindo para integração WhatsApp...",
-      });
-      setWebhookSent(true); // Marcar como enviado mesmo com erro
-      navigate('/whatsapp-integration', {
-        state: {
-          instanceName: config.nome_instancia,
-          chatbotData: config
-        }
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (!paymentConfirmed) {
+  if (!userData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="p-8 text-center">
-            <Lock className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Pagamento Necessário</h3>
+            <h3 className="text-xl font-semibold mb-2">Dados Necessários</h3>
             <p className="text-gray-600 mb-4">
-              Você precisa confirmar o pagamento antes de acessar esta área.
+              Você precisa preencher os dados pessoais primeiro.
             </p>
-            <Button onClick={() => navigate('/pricing-selection')}>
-              Voltar aos Planos
+            <Button onClick={() => navigate('/payment')}>
+              Voltar ao Cadastro
             </Button>
           </CardContent>
         </Card>
@@ -320,8 +281,10 @@ const ChatbotSetup = () => {
             </div>
 
             <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div><span className="font-medium">Usuário:</span> {userData.name}</div>
+              <div><span className="font-medium">Email:</span> {userData.email}</div>
+              <div><span className="font-medium">Empresa:</span> {userData.company}</div>
               <div><span className="font-medium">Nome da IA:</span> {config.nome_da_IA || 'Não informado'}</div>
-              <div><span className="font-medium">Empresa:</span> {config.empresa || 'Não informado'}</div>
               <div><span className="font-medium">Instância:</span> <code className="bg-gray-200 px-2 py-1 rounded text-sm">{config.nome_instancia}</code></div>
               <div><span className="font-medium">Nicho:</span> {config.nicho || 'Não informado'}</div>
               <div><span className="font-medium">Personalidade:</span> {config.personalidade || 'Não informado'}</div>
@@ -344,7 +307,7 @@ const ChatbotSetup = () => {
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
-                onClick={() => navigate('/pricing-selection')}
+                onClick={() => navigate('/payment')}
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -396,7 +359,174 @@ const ChatbotSetup = () => {
             </CardHeader>
 
             <CardContent className="space-y-6">
-              {renderStep()}
+              {/* Renderizar formulário baseado no step atual */}
+              {currentStep === 1 && (
+                <div className="space-y-6">
+                  <div>
+                    <Label htmlFor="nome_da_IA">Nome da sua IA</Label>
+                    <Input
+                      id="nome_da_IA"
+                      value={config.nome_da_IA}
+                      onChange={(e) => setConfig({ ...config, nome_da_IA: e.target.value })}
+                      placeholder="Ex: Assistente Nina, Agatha, Sofia"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="empresa">Nome da empresa</Label>
+                    <Input
+                      id="empresa"
+                      value={config.empresa}
+                      onChange={(e) => setConfig({ ...config, empresa: e.target.value })}
+                      placeholder="Ex: Clínica São Paulo, TechCorps"
+                      required
+                    />
+                  </div>
+
+                  {config.nome_instancia && (
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <Label className="text-sm font-medium text-blue-800">Nome da Instância (Gerado Automaticamente)</Label>
+                      <p className="text-blue-700 font-mono text-sm mt-1">{config.nome_instancia}</p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Este será o identificador único da sua IA no WhatsApp
+                      </p>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label htmlFor="nicho">Nicho/Área de atuação</Label>
+                    <Select onValueChange={(value) => setConfig({ ...config, nicho: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione sua área de atuação" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="clinica">Clínica Médica</SelectItem>
+                        <SelectItem value="estetica">Estética</SelectItem>
+                        <SelectItem value="advocacia">Advocacia</SelectItem>
+                        <SelectItem value="consultoria">Consultoria</SelectItem>
+                        <SelectItem value="restaurante">Restaurante</SelectItem>
+                        <SelectItem value="loja">Loja/E-commerce</SelectItem>
+                        <SelectItem value="servicos">Prestação de Serviços</SelectItem>
+                        <SelectItem value="outro">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="personalidade">Personalidade da IA</Label>
+                    <Select onValueChange={(value) => setConfig({ ...config, personalidade: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Como sua IA deve se comportar?" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="formal">Formal e profissional</SelectItem>
+                        <SelectItem value="amigavel">Amigável e descontraído</SelectItem>
+                        <SelectItem value="divertida">Descontraída e divertida, com emojis</SelectItem>
+                        <SelectItem value="tecnico">Técnico e detalhado</SelectItem>
+                        <SelectItem value="caloroso">Caloroso e acolhedor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  <div>
+                    <Label htmlFor="objetivo">Objetivo principal da IA</Label>
+                    <Textarea
+                      id="objetivo"
+                      value={config.objetivo}
+                      onChange={(e) => setConfig({ ...config, objetivo: e.target.value })}
+                      placeholder="Ex: Atender clientes, agendar consultas, fornecer informações sobre serviços..."
+                      rows={3}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="regras">Regras e restrições</Label>
+                    <Textarea
+                      id="regras"
+                      value={config.regras}
+                      onChange={(e) => setConfig({ ...config, regras: e.target.value })}
+                      placeholder="Ex: Não dar conselhos médicos, sempre solicitar confirmação para agendamentos..."
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="fluxo">Fluxo de atendimento</Label>
+                    <Textarea
+                      id="fluxo"
+                      value={config.fluxo}
+                      onChange={(e) => setConfig({ ...config, fluxo: e.target.value })}
+                      placeholder="Ex: Saudação → Identificar necessidade → Agendar → Confirmar dados..."
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Funcionalidades (selecione as que deseja)</Label>
+                    <div className="grid grid-cols-1 gap-2 mt-2">
+                      {[
+                        'Planilha de dados',
+                        'Agendamentos',
+                        'Cadastro de clientes',
+                        'Lembretes automáticos',
+                        'Relatórios',
+                        'Integração CRM'
+                      ].map((func) => (
+                        <label key={func} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={config.funcionalidades.includes(func)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setConfig({
+                                  ...config,
+                                  funcionalidades: [...config.funcionalidades, func]
+                                });
+                              } else {
+                                setConfig({
+                                  ...config,
+                                  funcionalidades: config.funcionalidades.filter(f => f !== func)
+                                });
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <span className="text-sm">{func}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold mb-2">Configuração Concluída!</h3>
+                    <p className="text-gray-600 mb-6">
+                      Seu chatbot está pronto. Aqui está um resumo das configurações:
+                    </p>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div><span className="font-medium">Usuário:</span> {userData.name}</div>
+                    <div><span className="font-medium">Email:</span> {userData.email}</div>
+                    <div><span className="font-medium">Empresa:</span> {userData.company}</div>
+                    <div><span className="font-medium">Nome da IA:</span> {config.nome_da_IA || 'Não informado'}</div>
+                    <div><span className="font-medium">Instância:</span> <code className="bg-gray-200 px-2 py-1 rounded text-sm">{config.nome_instancia}</code></div>
+                    <div><span className="font-medium">Nicho:</span> {config.nicho || 'Não informado'}</div>
+                    <div><span className="font-medium">Personalidade:</span> {config.personalidade || 'Não informado'}</div>
+                    <div><span className="font-medium">Funcionalidades:</span> {config.funcionalidades.join(', ') || 'Nenhuma selecionada'}</div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-between pt-6">
                 {currentStep > 1 && (
@@ -416,10 +546,10 @@ const ChatbotSetup = () => {
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Criando...
+                      Criando conta...
                     </>
                   ) : (
-                    currentStep === 3 ? 'Criar Chatbot' : 'Próximo'
+                    currentStep === 3 ? 'Criar Conta e Chatbot' : 'Próximo'
                   )}
                 </Button>
               </div>

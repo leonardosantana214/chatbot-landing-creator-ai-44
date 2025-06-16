@@ -34,6 +34,8 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/demo" element={<DemoPage />} />
             <Route path="/company-info" element={<CompanyInfo />} />
+            <Route path="/payment" element={<Payment />} />
+            <Route path="/chatbot-setup" element={<ChatbotSetup />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <Dashboard />
@@ -54,19 +56,9 @@ const App = () => (
                 <Messages />
               </ProtectedRoute>
             } />
-            <Route path="/chatbot-setup" element={
-              <ProtectedRoute>
-                <ChatbotSetup />
-              </ProtectedRoute>
-            } />
             <Route path="/pricing-selection" element={
               <ProtectedRoute>
                 <PricingSelection />
-              </ProtectedRoute>
-            } />
-            <Route path="/payment" element={
-              <ProtectedRoute>
-                <Payment />
               </ProtectedRoute>
             } />
             <Route path="/whatsapp-integration" element={
