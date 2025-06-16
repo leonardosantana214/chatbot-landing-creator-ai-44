@@ -3,33 +3,40 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, CheckCircle, Smartphone, Zap, Shield, QrCode } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Smartphone, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useN8nWebhook } from '@/hooks/useN8nWebhook';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEvolutionConnection } from '@/hooks/useEvolutionConnection';
 
 const WhatsAppIntegration = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [qrCodeData, setQrCodeData] = useState<string>('');
-  const [configSaved, setConfigSaved] = useState(false);
+  const { connectionData, isConnecting, connectInstance } = useEvolutionConnection();
+  
+  const [connectionSuccess, setConnectionSuccess] = useState(false);
 
-  // Pegar o nome da instância do state
+  // Pegar dados do state da navegação
   const instanceName = location.state?.instanceName || '';
   const chatbotData = location.state?.chatbotData || {};
 
-  const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
-  const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
-
   useEffect(() => {
+    // Verificar se usuário está autenticado
+    if (!user) {
+      toast({
+        title: "❌ Erro de Autenticação",
+        description: "Você precisa estar logado para conectar uma instância WhatsApp",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    // Verificar se temos o nome da instância
     if (!instanceName) {
       toast({
-        title: "Erro",
+        title: "❌ Erro",
         description: "Nome da instância não encontrado. Redirecionando...",
         variant: "destructive",
       });
@@ -37,468 +44,53 @@ const WhatsAppIntegration = () => {
       return;
     }
 
-    // Conectar automaticamente apenas uma vez
-    if (!isConnecting && !isConnected && !configSaved) {
-      handleConnect();
-    }
-  }, [instanceName]);
-
-  const fetchInstanceData = async (instanceName: string) => {
-    try {
-      console.log('🔍 Buscando dados da instância:', instanceName);
-      
-      // URL CORRETA para fetch-instances
-      const url = `${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': API_KEY,
-        },
-      });
-
-      console.log('📡 Status da resposta:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('📡 DADOS COMPLETOS DA INSTÂNCIA:', JSON.stringify(data, null, 2));
-        
-        // Extrair o instance_id real
-        let realInstanceId = '';
-        let instancePhone = '';
-        
-        // A resposta pode ser um array ou objeto direto
-        if (Array.isArray(data) && data.length > 0) {
-          const instanceData = data[0];
-          realInstanceId = instanceData.id || '';
-          instancePhone = instanceData.number || instanceData.phone || '';
-        } else if (data.id) {
-          realInstanceId = data.id;
-          instancePhone = data.number || data.phone || '';
-        } else if (data.instance) {
-          realInstanceId = data.instance.id || '';
-          instancePhone = data.instance.number || data.instance.phone || '';
-        }
-        
-        const cleanPhone = instancePhone.replace(/\D/g, '');
-        
-        console.log('✅ Instance ID REAL extraído:', realInstanceId);
-        console.log('✅ Telefone extraído:', cleanPhone);
-        
-        toast({
-          title: "🎯 DADOS CAPTURADOS!",
-          description: `ID: ${realInstanceId} | Tel: ${cleanPhone}`,
-          duration: 8000,
-        });
-        
-        return {
-          instanceId: realInstanceId,
-          phone: cleanPhone
-        };
-      } else {
-        console.error('❌ Erro na API:', response.status);
-        return null;
-      }
-      
-    } catch (error) {
-      console.error('❌ Erro ao buscar dados da instância:', error);
-      return null;
-    }
-  };
-
-  const createEvolutionInstance = async (instanceName: string) => {
-    try {
-      console.log('🚀 Criando instância Evolution:', instanceName);
-      
-      // Primeiro, verificar se a instância já existe
-      const existingInstance = await fetchInstanceData(instanceName);
-      if (existingInstance && existingInstance.instanceId) {
-        console.log('✅ Instância já existe:', existingInstance);
-        return existingInstance;
-      }
-      
-      // Payload simplificado para evitar constraint errors
-      const createPayload = {
-        instanceName: instanceName,
-        qrcode: true,
-        integration: 'WHATSAPP-BAILEYS'
-      };
-      
-      console.log('📤 Payload de criação:', JSON.stringify(createPayload, null, 2));
-      
-      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': API_KEY,
-        },
-        body: JSON.stringify(createPayload),
-      });
-
-      const responseText = await response.text();
-      console.log('📨 Resposta completa da API:', responseText);
-      console.log('📊 Status da resposta:', response.status);
-
-      if (response.ok) {
-        try {
-          const data = JSON.parse(responseText);
-          console.log('✅ Instância criada com sucesso:', data);
-          
-          // Aguardar um pouco antes de buscar os dados
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Buscar dados da instância recém-criada
-          const instanceData = await fetchInstanceData(instanceName);
-          return instanceData;
-        } catch (e) {
-          console.log('⚠️ Resposta não é JSON, mas request foi bem-sucedido');
-          
-          // Aguardar e tentar buscar dados
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          const instanceData = await fetchInstanceData(instanceName);
-          return instanceData;
-        }
-      } else {
-        // Log detalhado do erro
-        console.error('❌ Erro na criação da instância:');
-        console.error('Status:', response.status);
-        console.error('Response Text:', responseText);
-        
-        let errorMessage = `Erro ${response.status}`;
-        
-        try {
-          const errorData = JSON.parse(responseText);
-          console.error('📋 Dados do erro:', JSON.stringify(errorData, null, 2));
-          
-          if (errorData.response?.message) {
-            // Simplificar mensagem de erro para o usuário
-            if (errorData.response.message.includes('Foreign key constraint violated')) {
-              errorMessage = 'Erro de configuração na Evolution API. Tentando método alternativo...';
-            } else {
-              errorMessage = `Erro: ${errorData.response.message}`;
-            }
-          } else if (errorData.message) {
-            errorMessage = `Erro: ${errorData.message}`;
-          } else if (errorData.error) {
-            errorMessage = `Erro: ${errorData.error}`;
-          }
-        } catch (parseError) {
-          console.error('❌ Erro ao parsear resposta de erro:', parseError);
-          errorMessage = `Erro ${response.status}: ${responseText}`;
-        }
-        
-        throw new Error(errorMessage);
-      }
-    } catch (error) {
-      console.error('💥 Erro ao criar instância Evolution:', error);
-      throw error;
-    }
-  };
-
-  const getQRCode = async (instanceName: string, retries = 3) => {
-    for (let i = 0; i < retries; i++) {
-      try {
-        console.log(`🔄 Tentativa ${i + 1} de obter QR Code para:`, instanceName);
-        
-        const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${instanceName}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': API_KEY,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('📱 Dados do QR Code recebidos:', data);
-          
-          const qrCode = data.qrcode || data.qr || data.base64 || data.code;
-          
-          if (qrCode) {
-            console.log('✅ QR Code encontrado!');
-            return qrCode;
-          } else {
-            console.log('⚠️ QR Code não encontrado na resposta, tentando novamente...');
-          }
-        } else {
-          console.log(`❌ Erro ${response.status} ao obter QR Code, tentativa ${i + 1}`);
-        }
-        
-        if (i < retries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-      } catch (error) {
-        console.error(`💥 Erro na tentativa ${i + 1}:`, error);
-        if (i < retries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-      }
-    }
-    
-    throw new Error('Não foi possível obter o QR Code após várias tentativas');
-  };
-
-  const saveChatbotConfig = async (realInstanceId: string, instancePhone: string) => {
-    if (!realInstanceId || configSaved) {
-      console.log('❌ Instance ID não disponível ou já foi salvo');
-      return false;
-    }
-
-    if (!user) {
-      console.log('❌ Usuário não autenticado');
-      toast({
-        title: "❌ Erro de autenticação",
-        description: "Usuário não está logado",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    try {
-      console.log('💾 Salvando configuração no Supabase...');
-      console.log('👤 User ID autenticado:', user.id);
-      console.log('🤖 Instance ID da Evolution:', realInstanceId);
-      
-      // Primeiro verificar se já existe configuração para este usuário e instância
-      console.log('🔍 Verificando se já existe configuração...');
-      const { data: existing, error: searchError } = await supabase
-        .from('chatbot_configs')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('evo_instance_id', instanceName)
-        .maybeSingle();
-
-      if (searchError) {
-        console.error('❌ ERRO COMPLETO ao buscar registro:', JSON.stringify(searchError, null, 2));
-        console.error('❌ Código do erro:', searchError.code);
-        console.error('❌ Mensagem:', searchError.message);
-        console.error('❌ Detalhes:', searchError.details);
-        console.error('❌ Hint:', searchError.hint);
-        
-        toast({
-          title: "❌ Erro ao verificar dados",
-          description: `Erro: ${searchError.message}`,
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      console.log('📋 Resultado da busca:', existing ? 'Encontrado' : 'Não encontrado');
-
-      let result;
-      
-      if (existing) {
-        // Atualizar registro existente
-        console.log('📝 Atualizando registro existente...');
-        
-        const updateData = {
-          phone_number: instancePhone,
-          evolution_instance_id: realInstanceId,
-          updated_at: new Date().toISOString(),
-        };
-
-        console.log('📋 Dados para atualizar:', JSON.stringify(updateData, null, 2));
-
-        const { data, error } = await supabase
-          .from('chatbot_configs')
-          .update(updateData)
-          .eq('id', existing.id)
-          .select()
-          .single();
-
-        if (error) {
-          console.error('❌ ERRO COMPLETO ao atualizar:', JSON.stringify(error, null, 2));
-          console.error('❌ Código do erro:', error.code);
-          console.error('❌ Mensagem:', error.message);
-          console.error('❌ Detalhes:', error.details);
-          console.error('❌ Hint:', error.hint);
-          
-          toast({
-            title: "❌ Erro ao atualizar",
-            description: `Erro: ${error.message}`,
-            variant: "destructive",
-          });
-          return false;
-        }
-        result = data;
-        console.log('✅ Registro atualizado:', JSON.stringify(result, null, 2));
-      } else {
-        // Criar novo registro
-        console.log('🆕 Criando novo registro...');
-        
-        const configData = {
-          user_id: user.id,
-          bot_name: chatbotData.nome_da_IA || 'Chatbot',
-          service_type: chatbotData.nicho || 'Geral',
-          tone: chatbotData.personalidade || 'Profissional',
-          evo_instance_id: instanceName,
-          evolution_instance_id: realInstanceId,
-          phone_number: instancePhone,
-          is_active: true,
-          webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
-        };
-
-        console.log('📋 Dados para inserir:', JSON.stringify(configData, null, 2));
-
-        const { data, error } = await supabase
-          .from('chatbot_configs')
-          .insert(configData)
-          .select()
-          .single();
-
-        if (error) {
-          console.error('❌ ERRO COMPLETO ao inserir:', JSON.stringify(error, null, 2));
-          console.error('❌ Código do erro:', error.code);
-          console.error('❌ Mensagem:', error.message);
-          console.error('❌ Detalhes:', error.details);
-          console.error('❌ Hint:', error.hint);
-          
-          // Verificar se é erro de constraint ou validação
-          if (error.code === '23502') {
-            console.error('❌ Campo obrigatório faltando!');
-          } else if (error.code === '23505') {
-            console.error('❌ Violação de constraint única!');
-          }
-          
-          toast({
-            title: "❌ Erro ao inserir",
-            description: `Erro: ${error.message} (Código: ${error.code})`,
-            variant: "destructive",
-          });
-          return false;
-        }
-        result = data;
-        console.log('✅ Registro criado:', JSON.stringify(result, null, 2));
-      }
-
-      console.log('✅ Configuração salva com sucesso:', result);
-      
-      toast({
-        title: "✅ SALVO NO SUPABASE!",
-        description: `User: ${user.id} | Evolution ID: ${realInstanceId} | Tel: ${instancePhone}`,
-        duration: 8000,
-      });
-      
-      setConfigSaved(true);
-      return true;
-    } catch (error) {
-      console.error('💥 ERRO COMPLETO ao salvar configuração:', error);
-      console.error('💥 Tipo do erro:', typeof error);
-      console.error('💥 Stack trace:', error instanceof Error ? error.stack : 'Sem stack trace');
-      
-      toast({
-        title: "❌ Erro ao salvar",
-        description: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
+    console.log('🔐 Usuário autenticado:', user.id);
+    console.log('🏭 Instance Name:', instanceName);
+    console.log('🤖 Chatbot Data:', chatbotData);
+  }, [user, instanceName, navigate, toast, chatbotData]);
 
   const handleConnect = async () => {
-    if (!instanceName || isConnecting || isConnected) {
+    if (!user || !instanceName || isConnecting) {
       return;
     }
 
-    setIsConnecting(true);
+    console.log('🚀 Iniciando conexão da instância...');
+    console.log('👤 User autenticado:', user.id);
+    console.log('🏭 Instance:', instanceName);
     
-    try {
-      console.log('🚀 Iniciando processo de criação da instância...');
-      
-      // 1. Tentar criar ou verificar instância na Evolution
-      const instanceData = await createEvolutionInstance(instanceName);
-      
-      if (instanceData && instanceData.instanceId) {
-        console.log('🎯 Dados reais capturados:', instanceData);
-        
-        toast({
-          title: "✅ Instância configurada!",
-          description: "Salvando dados no Supabase...",
-        });
-        
-        // 2. SALVAR CONFIGURAÇÃO COM O INSTANCE_ID REAL
-        const saved = await saveChatbotConfig(instanceData.instanceId, instanceData.phone);
-        
-        if (saved) {
-          toast({
-            title: "✅ SUCESSO TOTAL!",
-            description: `Instance ID ${instanceData.instanceId} salvo no Supabase!`,
-            duration: 10000,
-          });
-        }
-      } else {
-        console.log('⚠️ Instância criada, mas dados não capturados');
-        toast({
-          title: "⚠️ Aviso",
-          description: "Processo parcialmente concluído",
-          variant: "destructive",
-        });
-      }
-      
-      // 3. Tentar obter QR Code
-      try {
-        const qrCode = await getQRCode(instanceName);
-        
-        if (qrCode) {
-          let qrCodeUrl = '';
-          
-          if (qrCode.startsWith('data:image')) {
-            qrCodeUrl = qrCode;
-          } else if (qrCode.startsWith('iVBOR') || qrCode.startsWith('/9j/') || qrCode.includes('base64')) {
-            qrCodeUrl = `data:image/png;base64,${qrCode.replace('data:image/png;base64,', '')}`;
-          } else if (qrCode.startsWith('http')) {
-            qrCodeUrl = qrCode;
-          } else {
-            qrCodeUrl = `data:image/png;base64,${qrCode}`;
-          }
-          
-          setQrCodeData(qrCodeUrl);
-          console.log('✅ QR Code configurado:', qrCodeUrl);
-        }
-      } catch (qrError) {
-        console.error('⚠️ Erro ao obter QR Code:', qrError);
-        
-        // Usar QR Code de fallback
-        const fallbackQR = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`Conectar instância: ${instanceName}`)}`;
-        setQrCodeData(fallbackQR);
-        
-        toast({
-          title: "QR Code de demonstração",
-          description: "Instância criada, mas QR Code real não disponível.",
-        });
-      }
-
-      setIsConnected(true);
-
-    } catch (error) {
-      console.error('💥 Erro no processo completo:', error);
-      
-      let userMessage = 'Erro desconhecido';
-      if (error instanceof Error) {
-        userMessage = error.message;
-        
-        // Simplificar mensagens técnicas para o usuário
-        if (userMessage.includes('Foreign key constraint violated')) {
-          userMessage = 'Erro de configuração na Evolution API. Tente novamente em alguns minutos.';
-        } else if (userMessage.includes('400')) {
-          userMessage = 'Erro na configuração da instância. Verifique os dados e tente novamente.';
-        }
-      }
-      
-      toast({
-        title: "❌ Erro no processo",
-        description: userMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsConnecting(false);
+    const result = await connectInstance(instanceName, chatbotData);
+    
+    if (result) {
+      console.log('✅ Conexão bem-sucedida:', result);
+      setConnectionSuccess(true);
     }
   };
 
   const handleFinish = () => {
     navigate('/dashboard');
   };
+
+  // Verificar se usuário não está autenticado
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-red-800 mb-2">
+              Autenticação Necessária
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Você precisa estar logado para conectar uma instância WhatsApp.
+            </p>
+            <Button onClick={() => navigate('/auth')} className="w-full">
+              Fazer Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -534,26 +126,57 @@ const WhatsAppIntegration = () => {
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
               Conectar WhatsApp Business
             </h2>
-            <p className="text-xl text-gray-600">
-              Instância <code className="bg-gray-200 px-2 py-1 rounded text-sm">{instanceName}</code> - Sistema Evolution API
-            </p>
+            <div className="bg-blue-50 p-4 rounded-lg mb-4">
+              <p className="text-blue-800">
+                <strong>Usuário:</strong> {user.email} | <strong>ID:</strong> {user.id}
+              </p>
+              <p className="text-blue-800">
+                <strong>Instância:</strong> <code className="bg-blue-200 px-2 py-1 rounded text-sm">{instanceName}</code>
+              </p>
+            </div>
           </div>
 
-          {!isConnected ? (
+          {!connectionSuccess ? (
             <Card className="shadow-xl max-w-2xl mx-auto">
               <CardHeader className="bg-[#FF914C] text-white">
                 <CardTitle className="text-2xl font-bold text-center">
                   <Smartphone className="h-8 w-8 mx-auto mb-2" />
-                  Configurando Instância WhatsApp
+                  {isConnecting ? 'Conectando Instância...' : 'Pronto para Conectar'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 text-center">
-                <div className="flex flex-col items-center justify-center py-8">
-                  <div className="w-16 h-16 border-4 border-[#FF914C] border-t-transparent rounded-full animate-spin mb-4"></div>
-                  <p className="text-gray-600">
-                    {isConnecting ? 'Configurando instância Evolution e salvando no Supabase...' : 'Processando...'}
-                  </p>
-                </div>
+                {isConnecting ? (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <div className="w-16 h-16 border-4 border-[#FF914C] border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <div className="space-y-2 text-gray-600">
+                      <p>🔄 Processando instância Evolution...</p>
+                      <p>🆔 Capturando Instance ID real...</p>
+                      <p>💾 Salvando configuração autenticada no Supabase...</p>
+                      <p className="text-sm">Aguarde, este processo pode levar alguns segundos...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h3 className="font-semibold text-green-800 mb-2">Sistema Reformulado:</h3>
+                      <ul className="text-sm text-green-700 text-left space-y-1">
+                        <li>✅ Autenticação obrigatória com Supabase</li>
+                        <li>✅ Captura do Instance ID REAL da Evolution</li>
+                        <li>✅ Vinculação correta: User ID ↔ Instance ID</li>
+                        <li>✅ Eliminação do placeholder 00000000</li>
+                        <li>✅ Resolução de constraint violations</li>
+                      </ul>
+                    </div>
+                    
+                    <Button 
+                      onClick={handleConnect}
+                      className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
+                      disabled={!instanceName}
+                    >
+                      Conectar Instância WhatsApp
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -561,36 +184,35 @@ const WhatsAppIntegration = () => {
               <CardContent className="p-8 text-center">
                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold text-green-800 mb-4">
-                  Instância Configurada com Sucesso!
+                  Conexão Realizada com Sucesso!
                 </h3>
-                <p className="text-gray-600 mb-6">
-                  Sua instância <strong>{instanceName}</strong> foi configurada e salva no Supabase.
-                  Escaneie o QR Code abaixo com seu WhatsApp para conectar.
-                </p>
                 
-                {qrCodeData && (
-                  <div className="mb-6">
-                    <img 
-                      src={qrCodeData} 
-                      alt="QR Code de Conexão WhatsApp"
-                      className="mx-auto border rounded-lg max-w-xs"
-                      onError={(e) => {
-                        console.error('❌ Erro ao carregar QR Code');
-                        e.currentTarget.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`Instância: ${instanceName}`)}`;
-                      }}
-                    />
+                {connectionData && (
+                  <div className="bg-green-50 p-4 rounded-lg mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-green-700">
+                      <div><strong>User ID:</strong> {user.id}</div>
+                      <div><strong>Instance ID:</strong> {connectionData.instanceId}</div>
+                      <div><strong>Instance Name:</strong> {connectionData.instanceName}</div>
+                      <div><strong>Telefone:</strong> {connectionData.phone}</div>
+                    </div>
                   </div>
                 )}
-
-                <div className="bg-green-50 p-4 rounded-lg mb-6">
-                  <h4 className="font-semibold text-green-800 mb-2">Como conectar:</h4>
-                  <ol className="text-sm text-green-700 text-left space-y-1">
-                    <li>1. Abra o WhatsApp no seu celular</li>
-                    <li>2. Toque em "Menu" (3 pontos) → "Dispositivos conectados"</li>
-                    <li>3. Toque em "Conectar um dispositivo"</li>
-                    <li>4. Escaneie o QR Code acima</li>
-                  </ol>
-                </div>
+                
+                {connectionData?.qrCode && (
+                  <div className="mb-6">
+                    <h4 className="font-semibold mb-2">Escaneie o QR Code:</h4>
+                    <img 
+                      src={connectionData.qrCode} 
+                      alt="QR Code WhatsApp"
+                      className="mx-auto border rounded-lg max-w-xs"
+                    />
+                    <div className="bg-blue-50 p-3 rounded-lg mt-4">
+                      <p className="text-sm text-blue-700">
+                        Abra o WhatsApp → Menu → Dispositivos conectados → Conectar dispositivo
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <Button 
                   onClick={handleFinish}
