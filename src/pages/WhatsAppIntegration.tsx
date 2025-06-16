@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -108,7 +109,23 @@ const WhatsAppIntegration = () => {
 
   const createEvolutionInstance = async (instanceName: string) => {
     try {
-      console.log('Criando instância:', instanceName);
+      console.log('🚀 Criando instância Evolution:', instanceName);
+      
+      // Primeiro, verificar se a instância já existe
+      const existingInstance = await fetchInstanceData(instanceName);
+      if (existingInstance && existingInstance.instanceId) {
+        console.log('✅ Instância já existe:', existingInstance);
+        return existingInstance;
+      }
+      
+      // Payload simplificado para evitar constraint errors
+      const createPayload = {
+        instanceName: instanceName,
+        qrcode: true,
+        integration: 'WHATSAPP-BAILEYS'
+      };
+      
+      console.log('📤 Payload de criação:', JSON.stringify(createPayload, null, 2));
       
       const response = await fetch(`${EVOLUTION_BASE_URL}/instance/create`, {
         method: 'POST',
@@ -116,31 +133,65 @@ const WhatsAppIntegration = () => {
           'Content-Type': 'application/json',
           'apikey': API_KEY,
         },
-        body: JSON.stringify({
-          instanceName: instanceName,
-          qrcode: true,
-          integration: 'WHATSAPP-BAILEYS'
-        }),
+        body: JSON.stringify(createPayload),
       });
 
       const responseText = await response.text();
-      console.log('Resposta da criação:', responseText);
+      console.log('📨 Resposta completa da API:', responseText);
+      console.log('📊 Status da resposta:', response.status);
 
       if (response.ok) {
         try {
           const data = JSON.parse(responseText);
-          console.log('Instância criada com sucesso:', data);
-          return data;
+          console.log('✅ Instância criada com sucesso:', data);
+          
+          // Aguardar um pouco antes de buscar os dados
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Buscar dados da instância recém-criada
+          const instanceData = await fetchInstanceData(instanceName);
+          return instanceData;
         } catch (e) {
-          console.log('Resposta não é JSON válido, mas request foi bem-sucedido');
-          return { success: true };
+          console.log('⚠️ Resposta não é JSON, mas request foi bem-sucedido');
+          
+          // Aguardar e tentar buscar dados
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          const instanceData = await fetchInstanceData(instanceName);
+          return instanceData;
         }
       } else {
-        console.error('Erro na criação da instância:', response.status, responseText);
-        throw new Error(`Erro ${response.status}: ${responseText}`);
+        // Log detalhado do erro
+        console.error('❌ Erro na criação da instância:');
+        console.error('Status:', response.status);
+        console.error('Response Text:', responseText);
+        
+        let errorMessage = `Erro ${response.status}`;
+        
+        try {
+          const errorData = JSON.parse(responseText);
+          console.error('📋 Dados do erro:', JSON.stringify(errorData, null, 2));
+          
+          if (errorData.response?.message) {
+            // Simplificar mensagem de erro para o usuário
+            if (errorData.response.message.includes('Foreign key constraint violated')) {
+              errorMessage = 'Erro de configuração na Evolution API. Tentando método alternativo...';
+            } else {
+              errorMessage = `Erro: ${errorData.response.message}`;
+            }
+          } else if (errorData.message) {
+            errorMessage = `Erro: ${errorData.message}`;
+          } else if (errorData.error) {
+            errorMessage = `Erro: ${errorData.error}`;
+          }
+        } catch (parseError) {
+          console.error('❌ Erro ao parsear resposta de erro:', parseError);
+          errorMessage = `Erro ${response.status}: ${responseText}`;
+        }
+        
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Erro ao criar instância Evolution:', error);
+      console.error('💥 Erro ao criar instância Evolution:', error);
       throw error;
     }
   };
@@ -148,7 +199,7 @@ const WhatsAppIntegration = () => {
   const getQRCode = async (instanceName: string, retries = 3) => {
     for (let i = 0; i < retries; i++) {
       try {
-        console.log(`Tentativa ${i + 1} de obter QR Code para:`, instanceName);
+        console.log(`🔄 Tentativa ${i + 1} de obter QR Code para:`, instanceName);
         
         const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${instanceName}`, {
           method: 'GET',
@@ -160,25 +211,25 @@ const WhatsAppIntegration = () => {
 
         if (response.ok) {
           const data = await response.json();
-          console.log('Dados do QR Code recebidos:', data);
+          console.log('📱 Dados do QR Code recebidos:', data);
           
           const qrCode = data.qrcode || data.qr || data.base64 || data.code;
           
           if (qrCode) {
-            console.log('QR Code encontrado!');
+            console.log('✅ QR Code encontrado!');
             return qrCode;
           } else {
-            console.log('QR Code não encontrado na resposta, tentando novamente...');
+            console.log('⚠️ QR Code não encontrado na resposta, tentando novamente...');
           }
         } else {
-          console.log(`Erro ${response.status} ao obter QR Code, tentativa ${i + 1}`);
+          console.log(`❌ Erro ${response.status} ao obter QR Code, tentativa ${i + 1}`);
         }
         
         if (i < retries - 1) {
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
       } catch (error) {
-        console.error(`Erro na tentativa ${i + 1}:`, error);
+        console.error(`💥 Erro na tentativa ${i + 1}:`, error);
         if (i < retries - 1) {
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
@@ -219,8 +270,11 @@ const WhatsAppIntegration = () => {
         .maybeSingle();
 
       if (searchError) {
-        console.error('❌ Erro ao buscar registro existente:', searchError);
-        console.error('❌ Detalhes do erro:', JSON.stringify(searchError, null, 2));
+        console.error('❌ ERRO COMPLETO ao buscar registro:', JSON.stringify(searchError, null, 2));
+        console.error('❌ Código do erro:', searchError.code);
+        console.error('❌ Mensagem:', searchError.message);
+        console.error('❌ Detalhes:', searchError.details);
+        console.error('❌ Hint:', searchError.hint);
         
         toast({
           title: "❌ Erro ao verificar dados",
@@ -254,8 +308,11 @@ const WhatsAppIntegration = () => {
           .single();
 
         if (error) {
-          console.error('❌ Erro ao atualizar:', error);
-          console.error('❌ Detalhes do erro:', JSON.stringify(error, null, 2));
+          console.error('❌ ERRO COMPLETO ao atualizar:', JSON.stringify(error, null, 2));
+          console.error('❌ Código do erro:', error.code);
+          console.error('❌ Mensagem:', error.message);
+          console.error('❌ Detalhes:', error.details);
+          console.error('❌ Hint:', error.hint);
           
           toast({
             title: "❌ Erro ao atualizar",
@@ -291,8 +348,7 @@ const WhatsAppIntegration = () => {
           .single();
 
         if (error) {
-          console.error('❌ Erro ao inserir:', error);
-          console.error('❌ Detalhes completos do erro:', JSON.stringify(error, null, 2));
+          console.error('❌ ERRO COMPLETO ao inserir:', JSON.stringify(error, null, 2));
           console.error('❌ Código do erro:', error.code);
           console.error('❌ Mensagem:', error.message);
           console.error('❌ Detalhes:', error.details);
@@ -327,7 +383,7 @@ const WhatsAppIntegration = () => {
       setConfigSaved(true);
       return true;
     } catch (error) {
-      console.error('💥 Erro ao salvar configuração:', error);
+      console.error('💥 ERRO COMPLETO ao salvar configuração:', error);
       console.error('💥 Tipo do erro:', typeof error);
       console.error('💥 Stack trace:', error instanceof Error ? error.stack : 'Sem stack trace');
       
@@ -350,24 +406,18 @@ const WhatsAppIntegration = () => {
     try {
       console.log('🚀 Iniciando processo de criação da instância...');
       
-      // 1. Criar instância na Evolution
-      await createEvolutionInstance(instanceName);
-      
-      toast({
-        title: "Instância criada!",
-        description: "Buscando dados reais da instância...",
-      });
-
-      // 2. Aguardar um pouco antes de buscar os dados
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // 3. BUSCAR DADOS REAIS DA INSTÂNCIA
-      const instanceData = await fetchInstanceData(instanceName);
+      // 1. Tentar criar ou verificar instância na Evolution
+      const instanceData = await createEvolutionInstance(instanceName);
       
       if (instanceData && instanceData.instanceId) {
         console.log('🎯 Dados reais capturados:', instanceData);
         
-        // 4. SALVAR CONFIGURAÇÃO COM O INSTANCE_ID REAL
+        toast({
+          title: "✅ Instância configurada!",
+          description: "Salvando dados no Supabase...",
+        });
+        
+        // 2. SALVAR CONFIGURAÇÃO COM O INSTANCE_ID REAL
         const saved = await saveChatbotConfig(instanceData.instanceId, instanceData.phone);
         
         if (saved) {
@@ -378,15 +428,15 @@ const WhatsAppIntegration = () => {
           });
         }
       } else {
-        console.log('❌ Não foi possível obter dados da instância');
+        console.log('⚠️ Instância criada, mas dados não capturados');
         toast({
           title: "⚠️ Aviso",
-          description: "Instância criada, mas dados não capturados",
+          description: "Processo parcialmente concluído",
           variant: "destructive",
         });
       }
       
-      // 5. Tentar obter QR Code
+      // 3. Tentar obter QR Code
       try {
         const qrCode = await getQRCode(instanceName);
         
@@ -404,10 +454,10 @@ const WhatsAppIntegration = () => {
           }
           
           setQrCodeData(qrCodeUrl);
-          console.log('QR Code configurado:', qrCodeUrl);
+          console.log('✅ QR Code configurado:', qrCodeUrl);
         }
       } catch (qrError) {
-        console.error('Erro ao obter QR Code:', qrError);
+        console.error('⚠️ Erro ao obter QR Code:', qrError);
         
         // Usar QR Code de fallback
         const fallbackQR = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`Conectar instância: ${instanceName}`)}`;
@@ -422,10 +472,23 @@ const WhatsAppIntegration = () => {
       setIsConnected(true);
 
     } catch (error) {
-      console.error('Erro ao criar instância:', error);
+      console.error('💥 Erro no processo completo:', error);
+      
+      let userMessage = 'Erro desconhecido';
+      if (error instanceof Error) {
+        userMessage = error.message;
+        
+        // Simplificar mensagens técnicas para o usuário
+        if (userMessage.includes('Foreign key constraint violated')) {
+          userMessage = 'Erro de configuração na Evolution API. Tente novamente em alguns minutos.';
+        } else if (userMessage.includes('400')) {
+          userMessage = 'Erro na configuração da instância. Verifique os dados e tente novamente.';
+        }
+      }
+      
       toast({
-        title: "Erro ao criar instância",
-        description: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Tente novamente.`,
+        title: "❌ Erro no processo",
+        description: userMessage,
         variant: "destructive",
       });
     } finally {
@@ -472,7 +535,7 @@ const WhatsAppIntegration = () => {
               Conectar WhatsApp Business
             </h2>
             <p className="text-xl text-gray-600">
-              Instância <code className="bg-gray-200 px-2 py-1 rounded text-sm">{instanceName}</code> - Capturando Instance ID real
+              Instância <code className="bg-gray-200 px-2 py-1 rounded text-sm">{instanceName}</code> - Sistema Evolution API
             </p>
           </div>
 
@@ -481,14 +544,14 @@ const WhatsAppIntegration = () => {
               <CardHeader className="bg-[#FF914C] text-white">
                 <CardTitle className="text-2xl font-bold text-center">
                   <Smartphone className="h-8 w-8 mx-auto mb-2" />
-                  Criando Instância e Salvando no Supabase
+                  Configurando Instância WhatsApp
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 text-center">
                 <div className="flex flex-col items-center justify-center py-8">
                   <div className="w-16 h-16 border-4 border-[#FF914C] border-t-transparent rounded-full animate-spin mb-4"></div>
                   <p className="text-gray-600">
-                    {isConnecting ? 'Criando instância, capturando Instance ID real e salvando no Supabase...' : 'Processando...'}
+                    {isConnecting ? 'Configurando instância Evolution e salvando no Supabase...' : 'Processando...'}
                   </p>
                 </div>
               </CardContent>
@@ -498,10 +561,10 @@ const WhatsAppIntegration = () => {
               <CardContent className="p-8 text-center">
                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold text-green-800 mb-4">
-                  Instância Criada com Sucesso!
+                  Instância Configurada com Sucesso!
                 </h3>
                 <p className="text-gray-600 mb-6">
-                  Sua instância <strong>{instanceName}</strong> foi criada e salva no Supabase.
+                  Sua instância <strong>{instanceName}</strong> foi configurada e salva no Supabase.
                   Escaneie o QR Code abaixo com seu WhatsApp para conectar.
                 </p>
                 
@@ -512,7 +575,7 @@ const WhatsAppIntegration = () => {
                       alt="QR Code de Conexão WhatsApp"
                       className="mx-auto border rounded-lg max-w-xs"
                       onError={(e) => {
-                        console.error('Erro ao carregar QR Code');
+                        console.error('❌ Erro ao carregar QR Code');
                         e.currentTarget.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`Instância: ${instanceName}`)}`;
                       }}
                     />
