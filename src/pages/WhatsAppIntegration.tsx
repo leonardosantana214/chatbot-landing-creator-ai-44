@@ -64,27 +64,20 @@ const WhatsAppIntegration = () => {
         const data = await response.json();
         console.log('📡 DADOS COMPLETOS DA INSTÂNCIA:', JSON.stringify(data, null, 2));
         
-        // Mostrar dados brutos na tela
-        toast({
-          title: "📡 DADOS DA INSTÂNCIA CAPTURADOS",
-          description: `Resposta: ${JSON.stringify(data).substring(0, 200)}...`,
-          duration: 10000,
-        });
-        
-        // Extrair o instance_id real (baseado na imagem fornecida)
+        // Extrair o instance_id real
         let realInstanceId = '';
         let instancePhone = '';
         
-        // Verificar estrutura da resposta e extrair o ID correto
-        if (data && Array.isArray(data) && data.length > 0) {
+        // A resposta pode ser um array ou objeto direto
+        if (Array.isArray(data) && data.length > 0) {
           const instanceData = data[0];
-          realInstanceId = instanceData.id || instanceData.instanceId || '';
+          realInstanceId = instanceData.id || '';
           instancePhone = instanceData.number || instanceData.phone || '';
         } else if (data.id) {
           realInstanceId = data.id;
           instancePhone = data.number || data.phone || '';
-        } else if (data.instance?.id) {
-          realInstanceId = data.instance.id;
+        } else if (data.instance) {
+          realInstanceId = data.instance.id || '';
           instancePhone = data.instance.number || data.instance.phone || '';
         }
         
@@ -93,11 +86,10 @@ const WhatsAppIntegration = () => {
         console.log('✅ Instance ID REAL extraído:', realInstanceId);
         console.log('✅ Telefone extraído:', cleanPhone);
         
-        // MOSTRAR NA TELA O ID REAL CAPTURADO
         toast({
-          title: "🎯 INSTANCE ID REAL CAPTURADO!",
-          description: `ID: ${realInstanceId} | Telefone: ${cleanPhone}`,
-          duration: 12000,
+          title: "🎯 DADOS CAPTURADOS!",
+          description: `ID: ${realInstanceId} | Tel: ${cleanPhone}`,
+          duration: 8000,
         });
         
         return {
@@ -106,24 +98,11 @@ const WhatsAppIntegration = () => {
         };
       } else {
         console.error('❌ Erro na API:', response.status);
-        const errorText = await response.text();
-        console.error('❌ Erro detalhado:', errorText);
-        
-        toast({
-          title: "❌ Erro ao buscar dados",
-          description: `Status: ${response.status}`,
-          variant: "destructive",
-        });
+        return null;
       }
       
-      return null;
     } catch (error) {
       console.error('❌ Erro ao buscar dados da instância:', error);
-      toast({
-        title: "❌ Erro de conexão",
-        description: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
-        variant: "destructive",
-      });
       return null;
     }
   };
@@ -210,46 +189,94 @@ const WhatsAppIntegration = () => {
     throw new Error('Não foi possível obter o QR Code após várias tentativas');
   };
 
-  const saveChatbotConfig = async (realInstanceId?: string, instancePhone?: string) => {
-    if (!user || configSaved) return;
+  const saveChatbotConfig = async (realInstanceId: string, instancePhone: string) => {
+    if (!realInstanceId || configSaved) {
+      console.log('❌ Instance ID não disponível ou já foi salvo');
+      return false;
+    }
 
     try {
       console.log('💾 Salvando configuração no Supabase...');
+      console.log('🔑 Dados para salvar:', {
+        user_id: realInstanceId,
+        evo_instance_id: instanceName,
+        phone_number: instancePhone,
+        bot_name: chatbotData.nome_da_IA || 'Chatbot',
+        service_type: chatbotData.nicho || 'Geral',
+        tone: chatbotData.personalidade || 'Profissional'
+      });
       
-      // USAR O INSTANCE_ID REAL COMO USER_ID
-      const userIdToSave = realInstanceId || user.id;
-      
-      const { error } = await supabase
+      // Primeiro verificar se já existe
+      const { data: existing } = await supabase
         .from('chatbot_configs')
-        .insert({
-          user_id: userIdToSave, // USAR INSTANCE_ID REAL COMO USER_ID
-          bot_name: chatbotData.nome_da_IA || 'Chatbot',
-          service_type: chatbotData.nicho || 'Geral',
-          tone: chatbotData.personalidade || 'Profissional',
-          evo_instance_id: instanceName,
-          phone_number: instancePhone || null,
-          is_active: true,
-          webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
-        });
+        .select('*')
+        .eq('evo_instance_id', instanceName)
+        .single();
 
-      if (error) throw error;
+      let result;
       
-      console.log('✅ Configuração salva com INSTANCE_ID REAL como USER_ID:', userIdToSave);
+      if (existing) {
+        // Atualizar registro existente
+        console.log('📝 Atualizando registro existente...');
+        const { data, error } = await supabase
+          .from('chatbot_configs')
+          .update({
+            user_id: realInstanceId,
+            phone_number: instancePhone,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('evo_instance_id', instanceName)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('❌ Erro ao atualizar:', error);
+          throw error;
+        }
+        result = data;
+      } else {
+        // Criar novo registro
+        console.log('🆕 Criando novo registro...');
+        const { data, error } = await supabase
+          .from('chatbot_configs')
+          .insert({
+            user_id: realInstanceId,
+            bot_name: chatbotData.nome_da_IA || 'Chatbot',
+            service_type: chatbotData.nicho || 'Geral',
+            tone: chatbotData.personalidade || 'Profissional',
+            evo_instance_id: instanceName,
+            phone_number: instancePhone,
+            is_active: true,
+            webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('❌ Erro ao inserir:', error);
+          throw error;
+        }
+        result = data;
+      }
+
+      console.log('✅ Configuração salva com sucesso:', result);
       
       toast({
-        title: "✅ Configuração salva!",
-        description: `User ID: ${userIdToSave} | Telefone: ${instancePhone || 'N/A'}`,
+        title: "✅ SALVO NO SUPABASE!",
+        description: `User ID: ${realInstanceId} | Tel: ${instancePhone}`,
         duration: 8000,
       });
       
       setConfigSaved(true);
+      return true;
     } catch (error) {
-      console.error('Erro ao salvar configuração:', error);
+      console.error('💥 Erro ao salvar configuração:', error);
       toast({
         title: "❌ Erro ao salvar",
         description: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         variant: "destructive",
       });
+      return false;
     }
   };
 
@@ -277,18 +304,27 @@ const WhatsAppIntegration = () => {
       // 3. BUSCAR DADOS REAIS DA INSTÂNCIA
       const instanceData = await fetchInstanceData(instanceName);
       
-      let realInstanceId = '';
-      let instancePhone = '';
-      
-      if (instanceData) {
-        realInstanceId = instanceData.instanceId;
-        instancePhone = instanceData.phone;
+      if (instanceData && instanceData.instanceId) {
+        console.log('🎯 Dados reais capturados:', instanceData);
         
-        console.log('🎯 Dados reais capturados:', { realInstanceId, instancePhone });
+        // 4. SALVAR CONFIGURAÇÃO COM O INSTANCE_ID REAL
+        const saved = await saveChatbotConfig(instanceData.instanceId, instanceData.phone);
+        
+        if (saved) {
+          toast({
+            title: "✅ SUCESSO TOTAL!",
+            description: `Instance ID ${instanceData.instanceId} salvo no Supabase!`,
+            duration: 10000,
+          });
+        }
+      } else {
+        console.log('❌ Não foi possível obter dados da instância');
+        toast({
+          title: "⚠️ Aviso",
+          description: "Instância criada, mas dados não capturados",
+          variant: "destructive",
+        });
       }
-      
-      // 4. Salvar configuração com o INSTANCE_ID REAL
-      await saveChatbotConfig(realInstanceId, instancePhone);
       
       // 5. Tentar obter QR Code
       try {
@@ -324,11 +360,6 @@ const WhatsAppIntegration = () => {
       }
 
       setIsConnected(true);
-      toast({
-        title: "✅ Processo concluído!",
-        description: `Instance ID real: ${realInstanceId || 'N/A'} capturado e salvo!`,
-        duration: 10000,
-      });
 
     } catch (error) {
       console.error('Erro ao criar instância:', error);
@@ -390,7 +421,7 @@ const WhatsAppIntegration = () => {
               <CardHeader className="bg-[#FF914C] text-white">
                 <CardTitle className="text-2xl font-bold text-center">
                   <Smartphone className="h-8 w-8 mx-auto mb-2" />
-                  Criando Instância e Capturando ID Real
+                  Criando Instância e Salvando no Supabase
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 text-center">
@@ -410,7 +441,7 @@ const WhatsAppIntegration = () => {
                   Instância Criada com Sucesso!
                 </h3>
                 <p className="text-gray-600 mb-6">
-                  Sua instância <strong>{instanceName}</strong> foi criada.
+                  Sua instância <strong>{instanceName}</strong> foi criada e salva no Supabase.
                   Escaneie o QR Code abaixo com seu WhatsApp para conectar.
                 </p>
                 
