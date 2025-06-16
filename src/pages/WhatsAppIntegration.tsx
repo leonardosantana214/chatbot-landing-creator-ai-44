@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -195,13 +194,26 @@ const WhatsAppIntegration = () => {
       return false;
     }
 
+    if (!user) {
+      console.log('❌ Usuário não autenticado');
+      toast({
+        title: "❌ Erro de autenticação",
+        description: "Usuário não está logado",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     try {
       console.log('💾 Salvando configuração no Supabase...');
+      console.log('👤 User ID autenticado:', user.id);
+      console.log('🤖 Instance ID da Evolution:', realInstanceId);
       
-      // Primeiro verificar se já existe configuração para esta instância
+      // Primeiro verificar se já existe configuração para este usuário e instância
       const { data: existing, error: searchError } = await supabase
         .from('chatbot_configs')
         .select('*')
+        .eq('user_id', user.id)
         .eq('evo_instance_id', instanceName)
         .maybeSingle();
 
@@ -218,8 +230,8 @@ const WhatsAppIntegration = () => {
         const { data, error } = await supabase
           .from('chatbot_configs')
           .update({
-            user_id: realInstanceId,
             phone_number: instancePhone,
+            evolution_instance_id: realInstanceId, // Salvar o ID real da Evolution
             updated_at: new Date().toISOString(),
           })
           .eq('id', existing.id)
@@ -232,15 +244,16 @@ const WhatsAppIntegration = () => {
         }
         result = data;
       } else {
-        // Criar novo registro - usando dados válidos e obrigatórios
+        // Criar novo registro - usando o user_id autenticado
         console.log('🆕 Criando novo registro...');
         
         const configData = {
-          user_id: realInstanceId,
+          user_id: user.id, // USAR O USER_ID AUTENTICADO
           bot_name: chatbotData.nome_da_IA || 'Chatbot',
           service_type: chatbotData.nicho || 'Geral',
           tone: chatbotData.personalidade || 'Profissional',
           evo_instance_id: instanceName,
+          evolution_instance_id: realInstanceId, // SALVAR O ID REAL DA EVOLUTION
           phone_number: instancePhone,
           is_active: true,
           webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
@@ -265,7 +278,7 @@ const WhatsAppIntegration = () => {
       
       toast({
         title: "✅ SALVO NO SUPABASE!",
-        description: `User ID: ${realInstanceId} | Tel: ${instancePhone}`,
+        description: `User: ${user.id} | Evolution ID: ${realInstanceId} | Tel: ${instancePhone}`,
         duration: 8000,
       });
       
