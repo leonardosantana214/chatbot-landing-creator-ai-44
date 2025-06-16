@@ -227,7 +227,7 @@ export type Database = {
           message_type: string | null
           telefone: string
           updated_at: string
-          user_id: string
+          user_id: string | null
           user_message: string
         }
         Insert: {
@@ -238,7 +238,7 @@ export type Database = {
           message_type?: string | null
           telefone: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
           user_message: string
         }
         Update: {
@@ -249,7 +249,7 @@ export type Database = {
           message_type?: string | null
           telefone?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
           user_message?: string
         }
         Relationships: []
