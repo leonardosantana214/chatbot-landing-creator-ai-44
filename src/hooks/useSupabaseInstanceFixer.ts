@@ -14,7 +14,8 @@ export const useSupabaseInstanceFixer = () => {
     try {
       console.log('🔍 Buscando dados reais da instância Evolution:', instanceName);
       
-      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/fetch/${instanceName}`, {
+      // USAR O ENDPOINT CORRETO QUE JÁ FUNCIONA - fetchInstances
+      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -31,51 +32,35 @@ export const useSupabaseInstanceFixer = () => {
         // Mostrar dados brutos na tela
         toast({
           title: "📡 DADOS BRUTOS DA EVOLUTION",
-          description: `Resposta: ${JSON.stringify(data).substring(0, 300)}...`,
+          description: `Resposta: ${JSON.stringify(data).substring(0, 200)}...`,
           duration: 15000,
         });
         
-        // CAPTURAR O ID REAL - baseado na imagem, o campo correto é "id" dentro de "data"
+        // CAPTURAR O ID REAL - baseado no endpoint fetchInstances
         let instanceId = '';
+        let evolutionPhone = '';
         
-        // Primeiro verificar se tem data array (como na imagem)
-        if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-          const instanceData = data.data[0];
-          instanceId = instanceData.id || instanceData.instanceId || instanceData.name || instanceName;
+        // Verificar se é array (resposta do fetchInstances)
+        if (Array.isArray(data) && data.length > 0) {
+          const instanceData = data[0];
+          instanceId = instanceData.id || instanceData.instanceId || instanceData.instanceName || instanceName;
+          evolutionPhone = instanceData.number || instanceData.phone || instanceData.phoneNumber || '';
         }
-        // Se não tem data array, verificar estrutura direta
+        // Se não é array, verificar estrutura direta
         else if (data.id) {
           instanceId = data.id;
+          evolutionPhone = data.number || data.phone || data.phoneNumber || '';
         }
         // Fallback para outras estruturas
         else if (data.instance?.id) {
           instanceId = data.instance.id;
-        } else if (data.instance?.instanceId) {
-          instanceId = data.instance.instanceId;
+          evolutionPhone = data.instance.phone || data.instance.number || '';
         } else if (data.instanceId) {
           instanceId = data.instanceId;
+          evolutionPhone = data.phone || data.number || '';
         } else {
           // Último recurso - usar o nome da instância
           instanceId = instanceName;
-        }
-        
-        // Extrair telefone - verificar também no data array
-        let evolutionPhone = '';
-        if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-          const instanceData = data.data[0];
-          evolutionPhone = instanceData.number || instanceData.phone || instanceData.ownerId || '';
-        } else if (data.instance?.phone) {
-          evolutionPhone = data.instance.phone;
-        } else if (data.phone) {
-          evolutionPhone = data.phone;
-        } else if (data.instance?.number) {
-          evolutionPhone = data.instance.number;
-        } else if (data.number) {
-          evolutionPhone = data.number;
-        } else if (data.instance?.phoneNumber) {
-          evolutionPhone = data.instance.phoneNumber;
-        } else if (data.phoneNumber) {
-          evolutionPhone = data.phoneNumber;
         }
         
         const cleanPhone = evolutionPhone.replace(/\D/g, '');
@@ -101,10 +86,45 @@ export const useSupabaseInstanceFixer = () => {
         
         toast({
           title: "❌ Erro na Evolution API",
-          description: `Status: ${response.status} - ${errorText}`,
+          description: `Status: ${response.status} - Tentando endpoint alternativo...`,
           variant: "destructive",
           duration: 8000,
         });
+
+        // TENTAR ENDPOINT ALTERNATIVO - connectionState
+        try {
+          console.log('🔄 Tentando endpoint alternativo connectionState...');
+          const altResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/connectionState/${instanceName}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': API_KEY,
+            },
+          });
+
+          if (altResponse.ok) {
+            const altData = await altResponse.json();
+            console.log('📡 Dados do endpoint alternativo:', altData);
+            
+            toast({
+              title: "📡 ENDPOINT ALTERNATIVO FUNCIONOU",
+              description: `Dados: ${JSON.stringify(altData).substring(0, 200)}...`,
+              duration: 10000,
+            });
+
+            // Extrair dados do endpoint connectionState
+            const instanceData = altData.instance || altData;
+            const instanceId = instanceData.instanceName || instanceData.id || instanceName;
+            
+            // Para este endpoint, o telefone pode não estar disponível
+            return {
+              instanceId: instanceId,
+              phone: '' // Deixar vazio se não encontrar
+            };
+          }
+        } catch (altError) {
+          console.error('❌ Erro no endpoint alternativo:', altError);
+        }
       }
       
       return null;
