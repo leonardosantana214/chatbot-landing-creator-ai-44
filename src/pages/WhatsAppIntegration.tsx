@@ -210,6 +210,7 @@ const WhatsAppIntegration = () => {
       console.log('🤖 Instance ID da Evolution:', realInstanceId);
       
       // Primeiro verificar se já existe configuração para este usuário e instância
+      console.log('🔍 Verificando se já existe configuração...');
       const { data: existing, error: searchError } = await supabase
         .from('chatbot_configs')
         .select('*')
@@ -217,49 +218,71 @@ const WhatsAppIntegration = () => {
         .eq('evo_instance_id', instanceName)
         .maybeSingle();
 
-      if (searchError && searchError.code !== 'PGRST116') {
+      if (searchError) {
         console.error('❌ Erro ao buscar registro existente:', searchError);
-        throw searchError;
+        console.error('❌ Detalhes do erro:', JSON.stringify(searchError, null, 2));
+        
+        toast({
+          title: "❌ Erro ao verificar dados",
+          description: `Erro: ${searchError.message}`,
+          variant: "destructive",
+        });
+        return false;
       }
+
+      console.log('📋 Resultado da busca:', existing ? 'Encontrado' : 'Não encontrado');
 
       let result;
       
       if (existing) {
         // Atualizar registro existente
         console.log('📝 Atualizando registro existente...');
+        
+        const updateData = {
+          phone_number: instancePhone,
+          evolution_instance_id: realInstanceId,
+          updated_at: new Date().toISOString(),
+        };
+
+        console.log('📋 Dados para atualizar:', JSON.stringify(updateData, null, 2));
+
         const { data, error } = await supabase
           .from('chatbot_configs')
-          .update({
-            phone_number: instancePhone,
-            evolution_instance_id: realInstanceId, // Salvar o ID real da Evolution
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('id', existing.id)
           .select()
           .single();
 
         if (error) {
           console.error('❌ Erro ao atualizar:', error);
-          throw error;
+          console.error('❌ Detalhes do erro:', JSON.stringify(error, null, 2));
+          
+          toast({
+            title: "❌ Erro ao atualizar",
+            description: `Erro: ${error.message}`,
+            variant: "destructive",
+          });
+          return false;
         }
         result = data;
+        console.log('✅ Registro atualizado:', JSON.stringify(result, null, 2));
       } else {
-        // Criar novo registro - usando o user_id autenticado
+        // Criar novo registro
         console.log('🆕 Criando novo registro...');
         
         const configData = {
-          user_id: user.id, // USAR O USER_ID AUTENTICADO
+          user_id: user.id,
           bot_name: chatbotData.nome_da_IA || 'Chatbot',
           service_type: chatbotData.nicho || 'Geral',
           tone: chatbotData.personalidade || 'Profissional',
           evo_instance_id: instanceName,
-          evolution_instance_id: realInstanceId, // SALVAR O ID REAL DA EVOLUTION
+          evolution_instance_id: realInstanceId,
           phone_number: instancePhone,
           is_active: true,
           webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
         };
 
-        console.log('📋 Dados para inserir:', configData);
+        console.log('📋 Dados para inserir:', JSON.stringify(configData, null, 2));
 
         const { data, error } = await supabase
           .from('chatbot_configs')
@@ -269,9 +292,28 @@ const WhatsAppIntegration = () => {
 
         if (error) {
           console.error('❌ Erro ao inserir:', error);
-          throw error;
+          console.error('❌ Detalhes completos do erro:', JSON.stringify(error, null, 2));
+          console.error('❌ Código do erro:', error.code);
+          console.error('❌ Mensagem:', error.message);
+          console.error('❌ Detalhes:', error.details);
+          console.error('❌ Hint:', error.hint);
+          
+          // Verificar se é erro de constraint ou validação
+          if (error.code === '23502') {
+            console.error('❌ Campo obrigatório faltando!');
+          } else if (error.code === '23505') {
+            console.error('❌ Violação de constraint única!');
+          }
+          
+          toast({
+            title: "❌ Erro ao inserir",
+            description: `Erro: ${error.message} (Código: ${error.code})`,
+            variant: "destructive",
+          });
+          return false;
         }
         result = data;
+        console.log('✅ Registro criado:', JSON.stringify(result, null, 2));
       }
 
       console.log('✅ Configuração salva com sucesso:', result);
@@ -286,6 +328,9 @@ const WhatsAppIntegration = () => {
       return true;
     } catch (error) {
       console.error('💥 Erro ao salvar configuração:', error);
+      console.error('💥 Tipo do erro:', typeof error);
+      console.error('💥 Stack trace:', error instanceof Error ? error.stack : 'Sem stack trace');
+      
       toast({
         title: "❌ Erro ao salvar",
         description: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
