@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,91 @@ const WhatsAppIntegration = () => {
       handleConnect();
     }
   }, [instanceName]);
+
+  const fetchInstanceData = async (instanceName: string) => {
+    try {
+      console.log('🔍 Buscando dados da instância:', instanceName);
+      
+      // URL CORRETA para fetch-instances
+      const url = `${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': API_KEY,
+        },
+      });
+
+      console.log('📡 Status da resposta:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📡 DADOS COMPLETOS DA INSTÂNCIA:', JSON.stringify(data, null, 2));
+        
+        // Mostrar dados brutos na tela
+        toast({
+          title: "📡 DADOS DA INSTÂNCIA CAPTURADOS",
+          description: `Resposta: ${JSON.stringify(data).substring(0, 200)}...`,
+          duration: 10000,
+        });
+        
+        // Extrair o instance_id real (baseado na imagem fornecida)
+        let realInstanceId = '';
+        let instancePhone = '';
+        
+        // Verificar estrutura da resposta e extrair o ID correto
+        if (data && Array.isArray(data) && data.length > 0) {
+          const instanceData = data[0];
+          realInstanceId = instanceData.id || instanceData.instanceId || '';
+          instancePhone = instanceData.number || instanceData.phone || '';
+        } else if (data.id) {
+          realInstanceId = data.id;
+          instancePhone = data.number || data.phone || '';
+        } else if (data.instance?.id) {
+          realInstanceId = data.instance.id;
+          instancePhone = data.instance.number || data.instance.phone || '';
+        }
+        
+        const cleanPhone = instancePhone.replace(/\D/g, '');
+        
+        console.log('✅ Instance ID REAL extraído:', realInstanceId);
+        console.log('✅ Telefone extraído:', cleanPhone);
+        
+        // MOSTRAR NA TELA O ID REAL CAPTURADO
+        toast({
+          title: "🎯 INSTANCE ID REAL CAPTURADO!",
+          description: `ID: ${realInstanceId} | Telefone: ${cleanPhone}`,
+          duration: 12000,
+        });
+        
+        return {
+          instanceId: realInstanceId,
+          phone: cleanPhone
+        };
+      } else {
+        console.error('❌ Erro na API:', response.status);
+        const errorText = await response.text();
+        console.error('❌ Erro detalhado:', errorText);
+        
+        toast({
+          title: "❌ Erro ao buscar dados",
+          description: `Status: ${response.status}`,
+          variant: "destructive",
+        });
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados da instância:', error);
+      toast({
+        title: "❌ Erro de conexão",
+        description: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
 
   const createEvolutionInstance = async (instanceName: string) => {
     try {
@@ -124,27 +210,46 @@ const WhatsAppIntegration = () => {
     throw new Error('Não foi possível obter o QR Code após várias tentativas');
   };
 
-  const saveChatbotConfig = async () => {
+  const saveChatbotConfig = async (realInstanceId?: string, instancePhone?: string) => {
     if (!user || configSaved) return;
 
     try {
+      console.log('💾 Salvando configuração no Supabase...');
+      
+      // USAR O INSTANCE_ID REAL COMO USER_ID
+      const userIdToSave = realInstanceId || user.id;
+      
       const { error } = await supabase
         .from('chatbot_configs')
         .insert({
-          user_id: user.id,
+          user_id: userIdToSave, // USAR INSTANCE_ID REAL COMO USER_ID
           bot_name: chatbotData.nome_da_IA || 'Chatbot',
           service_type: chatbotData.nicho || 'Geral',
           tone: chatbotData.personalidade || 'Profissional',
           evo_instance_id: instanceName,
+          phone_number: instancePhone || null,
           is_active: true,
           webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
         });
 
       if (error) throw error;
-      console.log('Configuração do chatbot salva no Supabase');
+      
+      console.log('✅ Configuração salva com INSTANCE_ID REAL como USER_ID:', userIdToSave);
+      
+      toast({
+        title: "✅ Configuração salva!",
+        description: `User ID: ${userIdToSave} | Telefone: ${instancePhone || 'N/A'}`,
+        duration: 8000,
+      });
+      
       setConfigSaved(true);
     } catch (error) {
       console.error('Erro ao salvar configuração:', error);
+      toast({
+        title: "❌ Erro ao salvar",
+        description: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -156,19 +261,36 @@ const WhatsAppIntegration = () => {
     setIsConnecting(true);
     
     try {
-      console.log('Iniciando processo de criação da instância...');
+      console.log('🚀 Iniciando processo de criação da instância...');
       
-      // Criar instância na Evolution
+      // 1. Criar instância na Evolution
       await createEvolutionInstance(instanceName);
       
       toast({
         title: "Instância criada!",
-        description: "Obtendo QR Code para conexão...",
+        description: "Buscando dados reais da instância...",
       });
 
-      // Aguardar um pouco antes de buscar o QR Code
+      // 2. Aguardar um pouco antes de buscar os dados
       await new Promise(resolve => setTimeout(resolve, 3000));
       
+      // 3. BUSCAR DADOS REAIS DA INSTÂNCIA
+      const instanceData = await fetchInstanceData(instanceName);
+      
+      let realInstanceId = '';
+      let instancePhone = '';
+      
+      if (instanceData) {
+        realInstanceId = instanceData.instanceId;
+        instancePhone = instanceData.phone;
+        
+        console.log('🎯 Dados reais capturados:', { realInstanceId, instancePhone });
+      }
+      
+      // 4. Salvar configuração com o INSTANCE_ID REAL
+      await saveChatbotConfig(realInstanceId, instancePhone);
+      
+      // 5. Tentar obter QR Code
       try {
         const qrCode = await getQRCode(instanceName);
         
@@ -188,32 +310,25 @@ const WhatsAppIntegration = () => {
           setQrCodeData(qrCodeUrl);
           console.log('QR Code configurado:', qrCodeUrl);
         }
-
-        // Salvar configuração no Supabase (apenas uma vez)
-        await saveChatbotConfig();
-
-        setIsConnected(true);
-        toast({
-          title: "Tudo pronto!",
-          description: "Escaneie o QR Code com seu WhatsApp para conectar.",
-        });
-
       } catch (qrError) {
         console.error('Erro ao obter QR Code:', qrError);
         
         // Usar QR Code de fallback
         const fallbackQR = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`Conectar instância: ${instanceName}`)}`;
         setQrCodeData(fallbackQR);
-        setIsConnected(true);
-        
-        // Ainda assim salvar a configuração
-        await saveChatbotConfig();
         
         toast({
-          title: "Instância criada!",
-          description: "QR Code de demonstração gerado. A instância foi criada com sucesso.",
+          title: "QR Code de demonstração",
+          description: "Instância criada, mas QR Code real não disponível.",
         });
       }
+
+      setIsConnected(true);
+      toast({
+        title: "✅ Processo concluído!",
+        description: `Instance ID real: ${realInstanceId || 'N/A'} capturado e salvo!`,
+        duration: 10000,
+      });
 
     } catch (error) {
       console.error('Erro ao criar instância:', error);
@@ -266,7 +381,7 @@ const WhatsAppIntegration = () => {
               Conectar WhatsApp Business
             </h2>
             <p className="text-xl text-gray-600">
-              Instância <code className="bg-gray-200 px-2 py-1 rounded text-sm">{instanceName}</code> foi criada automaticamente
+              Instância <code className="bg-gray-200 px-2 py-1 rounded text-sm">{instanceName}</code> - Capturando Instance ID real
             </p>
           </div>
 
@@ -275,14 +390,14 @@ const WhatsAppIntegration = () => {
               <CardHeader className="bg-[#FF914C] text-white">
                 <CardTitle className="text-2xl font-bold text-center">
                   <Smartphone className="h-8 w-8 mx-auto mb-2" />
-                  Criando Instância WhatsApp
+                  Criando Instância e Capturando ID Real
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 text-center">
                 <div className="flex flex-col items-center justify-center py-8">
                   <div className="w-16 h-16 border-4 border-[#FF914C] border-t-transparent rounded-full animate-spin mb-4"></div>
                   <p className="text-gray-600">
-                    {isConnecting ? 'Criando instância e obtendo QR Code...' : 'Processando...'}
+                    {isConnecting ? 'Criando instância, capturando Instance ID real e salvando no Supabase...' : 'Processando...'}
                   </p>
                 </div>
               </CardContent>
