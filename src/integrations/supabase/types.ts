@@ -311,6 +311,45 @@ export type Database = {
           },
         ]
       }
+      user_profiles: {
+        Row: {
+          area: string | null
+          company: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          instance_id: string | null
+          instance_name: string | null
+          name: string | null
+          updated_at: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          area?: string | null
+          company?: string | null
+          created_at?: string | null
+          email?: string | null
+          id: string
+          instance_id?: string | null
+          instance_name?: string | null
+          name?: string | null
+          updated_at?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          area?: string | null
+          company?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          instance_id?: string | null
+          instance_name?: string | null
+          name?: string | null
+          updated_at?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

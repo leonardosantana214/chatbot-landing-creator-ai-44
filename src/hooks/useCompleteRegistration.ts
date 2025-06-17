@@ -52,15 +52,15 @@ export const useCompleteRegistration = () => {
 
       console.log('✅ Instância criada:', instanceData.instanceId);
 
-      // 2. Criar usuário no Supabase Auth COM instance_id nos metadados
-      console.log('👤 Criando usuário com instance_id...');
+      // 2. Criar usuário no Supabase Auth COM todos os dados nos metadados
+      console.log('👤 Criando usuário com todos os dados...');
       
       const { error: signUpError } = await signUp(userData.email, userData.password, {
         name: userData.name,
         company: userData.company,
         area: userData.area,
         whatsapp: userData.whatsapp,
-        instance_id: instanceData.instanceId, // AQUI está o instance_id!
+        instance_id: instanceData.instanceId,
         instance_name: chatbotConfig.nome_instancia
       });
 
@@ -69,7 +69,7 @@ export const useCompleteRegistration = () => {
         throw new Error(`Erro ao criar usuário: ${signUpError.message}`);
       }
 
-      // 3. Aguardar um pouco para o usuário ser criado completamente
+      // 3. Aguardar criação completa
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // 4. Fazer login automático
@@ -86,16 +86,32 @@ export const useCompleteRegistration = () => {
 
       console.log('✅ Login realizado com sucesso!');
 
-      // 5. Aguardar um pouco para garantir que a sessão está estabelecida
+      // 5. Aguardar estabelecimento da sessão
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // 6. Salvar configuração do chatbot no Supabase
-      console.log('💾 Salvando configuração do chatbot...');
+      // 6. Verificar se o perfil foi criado automaticamente pelo trigger
+      console.log('🔍 Verificando criação do perfil...');
       
       if (!loginData.user) {
         throw new Error('Usuário não encontrado após login');
       }
 
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', loginData.user.id)
+        .single();
+
+      if (profileError) {
+        console.error('❌ Erro ao verificar perfil:', profileError);
+        throw new Error(`Erro ao verificar perfil: ${profileError.message}`);
+      }
+
+      console.log('✅ Perfil criado automaticamente:', profileData);
+
+      // 7. Salvar configuração do chatbot
+      console.log('💾 Salvando configuração do chatbot...');
+      
       const configData = {
         user_id: loginData.user.id,
         bot_name: chatbotConfig.nome_da_IA,
@@ -122,7 +138,7 @@ export const useCompleteRegistration = () => {
 
       toast({
         title: "🎉 CADASTRO COMPLETO!",
-        description: `Usuário criado com Instance ID: ${instanceData.instanceId}`,
+        description: `Usuário criado! Instance ID salvo nos metadados E na tabela user_profiles: ${instanceData.instanceId}`,
         duration: 10000,
       });
 
