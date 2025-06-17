@@ -224,6 +224,7 @@ export type Database = {
           bot_message: string
           created_at: string
           id: number
+          Instance_ID: string | null
           message_type: string | null
           telefone: string
           updated_at: string
@@ -235,6 +236,7 @@ export type Database = {
           bot_message: string
           created_at?: string
           id?: number
+          Instance_ID?: string | null
           message_type?: string | null
           telefone: string
           updated_at?: string
@@ -246,6 +248,7 @@ export type Database = {
           bot_message?: string
           created_at?: string
           id?: number
+          Instance_ID?: string | null
           message_type?: string | null
           telefone?: string
           updated_at?: string
