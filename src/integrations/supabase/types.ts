@@ -138,7 +138,7 @@ export type Database = {
           nome_cliente: string
           profissional: string | null
           protocolo: string
-          "telefone-cliente": string
+          telefone: string
           tipo_atendimento: string
           updated_at: string
           user_id: string
@@ -152,7 +152,7 @@ export type Database = {
           nome_cliente: string
           profissional?: string | null
           protocolo: string
-          "telefone-cliente": string
+          telefone: string
           tipo_atendimento: string
           updated_at?: string
           user_id: string
@@ -166,7 +166,7 @@ export type Database = {
           nome_cliente?: string
           profissional?: string | null
           protocolo?: string
-          "telefone-cliente"?: string
+          telefone?: string
           tipo_atendimento?: string
           updated_at?: string
           user_id?: string
