@@ -3,13 +3,14 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, AlertCircle, Smartphone, Settings, Users, MessageSquare, Calendar, RefreshCw } from 'lucide-react';
+import { CheckCircle, AlertCircle, Smartphone, Users, MessageSquare, Calendar, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useEvolutionApi } from '@/hooks/useEvolutionApi';
 import WhatsAppConnectionStatus from '@/components/WhatsAppConnectionStatus';
 import ChatbotStatus from '@/components/ChatbotStatus';
+import QRCodeConnection from '@/components/QRCodeConnection';
 
 interface ChatbotConfig {
   id: string;
@@ -74,7 +75,6 @@ const Dashboard = () => {
     try {
       console.log('Verificando se usuário tem chatbot configurado...');
       
-      // Buscar apenas configurações do usuário logado
       const { data: configs, error } = await supabase
         .from('chatbot_configs')
         .select('*')
@@ -177,49 +177,27 @@ const Dashboard = () => {
         {/* Status do Chatbot com verificação automática */}
         <ChatbotStatus />
         
-        {/* Configuração do Chatbot */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2 text-lg">
-              <MessageSquare className="h-5 w-5" />
-              <span>Chatbot</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {chatbotConfig ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Status:</span>
-                  <Badge variant={chatbotConfig.is_active ? "default" : "secondary"}>
-                    {chatbotConfig.is_active ? 'Ativo' : 'Inativo'}
-                  </Badge>
-                </div>
-                
-                <div className="text-xs space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Nome:</span>
-                    <span className="font-medium">{chatbotConfig.bot_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Tipo:</span>
-                    <span className="font-medium">{chatbotConfig.service_type}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Tom:</span>
-                    <span className="font-medium">{chatbotConfig.tone}</span>
-                  </div>
-                </div>
-                
-                <Button 
-                  size="sm" 
-                  className="w-full mt-3"
-                  onClick={() => window.location.href = '/chatbot-setup'}
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  Editar
-                </Button>
-              </div>
-            ) : (
+        {/* QR Code Connection - substituindo configuração */}
+        {chatbotConfig?.evo_instance_id ? (
+          <QRCodeConnection 
+            instanceName={chatbotConfig.evo_instance_id}
+            onConnectionSuccess={() => {
+              toast({
+                title: "Conectado!",
+                description: "WhatsApp conectado com sucesso!",
+              });
+              checkChatbotStatus();
+            }}
+          />
+        ) : (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center space-x-2 text-lg">
+                <MessageSquare className="h-5 w-5" />
+                <span>Chatbot</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="text-center py-4">
                 <MessageSquare className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                 <p className="text-sm text-gray-600 mb-3">Nenhum chatbot configurado</p>
@@ -227,13 +205,13 @@ const Dashboard = () => {
                   size="sm"
                   onClick={() => window.location.href = '/chatbot-setup'}
                 >
-                  <Settings className="h-4 w-4 mr-2" />
+                  <Smartphone className="h-4 w-4 mr-2" />
                   Criar Chatbot
                 </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Quick Actions */}
@@ -268,7 +246,7 @@ const Dashboard = () => {
         <Card className="hover:shadow-md transition-shadow cursor-pointer" 
               onClick={() => window.location.href = '/chatbot-setup'}>
           <CardContent className="p-6 text-center">
-            <Settings className="h-8 w-8 text-orange-500 mx-auto mb-3" />
+            <Smartphone className="h-8 w-8 text-orange-500 mx-auto mb-3" />
             <h3 className="font-semibold mb-1">Configurações</h3>
             <p className="text-sm text-gray-600">Ajustar preferências</p>
           </CardContent>

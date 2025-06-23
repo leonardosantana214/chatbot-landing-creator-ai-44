@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle, RefreshCw, Settings } from 'lucide-react';
+import { AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useEvolutionApi } from '@/hooks/useEvolutionApi';
@@ -61,7 +61,7 @@ const ChatbotStatus = ({ onStatusChange }: ChatbotStatusProps) => {
 
   useEffect(() => {
     checkChatbotStatus();
-    const interval = setInterval(checkChatbotStatus, 30000); // Verificar a cada 30 segundos
+    const interval = setInterval(checkChatbotStatus, 30000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -128,17 +128,6 @@ const ChatbotStatus = ({ onStatusChange }: ChatbotStatusProps) => {
         <div className="text-xs text-gray-400">
           Última verificação: {status.lastCheck.toLocaleTimeString()}
         </div>
-
-        {(!status.isActive || !status.connected) && (
-          <Button
-            size="sm"
-            className="w-full"
-            onClick={() => window.location.href = '/whatsapp-integration'}
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Configurar Chatbot
-          </Button>
-        )}
       </CardContent>
     </Card>
   );
