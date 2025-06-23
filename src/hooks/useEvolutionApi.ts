@@ -1,26 +1,29 @@
 
+import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 
-interface EvolutionInstanceStatus {
+interface EvolutionApiResponse {
   instanceName: string;
-  status: 'open' | 'close' | 'connecting';
-  qrcode?: string;
+  status: string;
   connected: boolean;
+  qrCode?: string;
+  phone?: string;
 }
 
 export const useEvolutionApi = () => {
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  
+
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
 
-  const checkInstanceStatus = async (instanceName: string): Promise<EvolutionInstanceStatus> => {
+  const checkInstanceStatus = async (instanceName: string): Promise<EvolutionApiResponse | null> => {
     try {
+      setIsLoading(true);
       console.log('🔍 Verificando status da instância:', instanceName);
       
-      // Verificar status de conexão diretamente
-      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connectionState/${instanceName}`, {
+      // Try the fetchInstances endpoint first (this seems to work based on your other code)
+      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -28,58 +31,93 @@ export const useEvolutionApi = () => {
         },
       });
 
-      console.log('📡 Resposta da API Evolution:', response.status);
+      console.log('📡 Status da resposta Evolution:', response.status);
 
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 Dados recebidos da Evolution:', data);
+        console.log('✅ Instância encontrada:', data);
         
-        // Melhorar a verificação do status - considerar tanto 'open' quanto conexões ativas
-        const instanceData = data.instance || data;
-        const state = instanceData.state || data.state;
-        const isConnected = state === 'open';
-        
-        console.log(`✅ Status processado: ${state}, Conectado: ${isConnected}`);
+        // Handle array response
+        let instanceData;
+        if (Array.isArray(data) && data.length > 0) {
+          instanceData = data[0];
+        } else {
+          instanceData = data;
+        }
         
         return {
           instanceName,
-          status: state || 'close',
-          connected: isConnected,
-          qrcode: data.qrcode || data.qr || data.base64
+          status: instanceData.status || 'unknown',
+          connected: instanceData.status === 'open' || instanceData.connected === true,
+          phone: instanceData.number || instanceData.phone || '',
+          qrCode: instanceData.qrcode || instanceData.qr || ''
         };
       } else {
-        console.warn('⚠️ Erro na resposta da API:', response.status);
+        console.log('⚠️ Instância não encontrada, tentando criar nova...');
         
-        // Se erro 404, instância não existe
-        if (response.status === 404) {
-          console.log('❌ Instância não encontrada na Evolution API');
+        // If instance doesn't exist, try to create it
+        const createResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': API_KEY,
+          },
+          body: JSON.stringify({
+            instanceName: instanceName,
+            qrcode: true,
+            integration: 'WHATSAPP-BAILEYS'
+          }),
+        });
+
+        if (createResponse.ok) {
+          console.log('✅ Nova instância criada com sucesso');
+          toast({
+            title: "Instância criada!",
+            description: `A instância ${instanceName} foi criada com sucesso.`,
+          });
+          
+          // Return pending status while instance initializes
           return {
             instanceName,
             status: 'close',
-            connected: false
+            connected: false,
           };
+        } else {
+          console.error('❌ Erro ao criar instância:', createResponse.status);
+          const errorText = await createResponse.text();
+          console.error('❌ Detalhes do erro:', errorText);
         }
-        
-        // Para outros erros, assumir desconectado
-        return {
-          instanceName,
-          status: 'close',
-          connected: false
-        };
       }
-    } catch (error) {
-      console.error('💥 Erro ao verificar status da instância:', error);
+      
+      // Fallback response for error cases
       return {
         instanceName,
         status: 'close',
         connected: false
       };
+
+    } catch (error) {
+      console.error('💥 Erro ao verificar status da instância:', error);
+      toast({
+        title: "Erro na conexão",
+        description: "Não foi possível conectar com a API Evolution.",
+        variant: "destructive",
+      });
+      
+      return {
+        instanceName,
+        status: 'error',
+        connected: false
+      };
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const getQRCode = async (instanceName: string): Promise<string | null> => {
+  const connectInstance = async (instanceName: string): Promise<string | null> => {
     try {
-      console.log('📱 Obtendo QR Code para:', instanceName);
+      setIsLoading(true);
+      console.log('🔗 Conectando instância:', instanceName);
       
       const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${instanceName}`, {
         method: 'GET',
@@ -91,47 +129,26 @@ export const useEvolutionApi = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ QR Code obtido com sucesso');
-        return data.qrcode || data.qr || data.base64 || null;
-      } else {
-        console.warn('⚠️ Erro ao obter QR Code:', response.status);
+        const qrCode = data.qrcode || data.qr || data.base64;
+        
+        if (qrCode) {
+          console.log('✅ QR Code obtido com sucesso');
+          return qrCode.startsWith('data:image') ? qrCode : `data:image/png;base64,${qrCode}`;
+        }
       }
       
       return null;
     } catch (error) {
-      console.error('💥 Erro ao obter QR Code:', error);
+      console.error('❌ Erro ao conectar instância:', error);
       return null;
-    }
-  };
-
-  const disconnectInstance = async (instanceName: string): Promise<boolean> => {
-    try {
-      console.log('🔌 Desconectando instância:', instanceName);
-      
-      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/logout/${instanceName}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': API_KEY,
-        },
-      });
-
-      if (response.ok) {
-        console.log('✅ Instância desconectada com sucesso');
-        return true;
-      } else {
-        console.warn('⚠️ Erro ao desconectar instância:', response.status);
-        return false;
-      }
-    } catch (error) {
-      console.error('💥 Erro ao desconectar instância:', error);
-      return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return {
+    isLoading,
     checkInstanceStatus,
-    getQRCode,
-    disconnectInstance
+    connectInstance,
   };
 };
