@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useEvolutionApi } from '@/hooks/useEvolutionApi';
 import WhatsAppConnectionStatus from '@/components/WhatsAppConnectionStatus';
+import ChatbotStatus from '@/components/ChatbotStatus';
 
 interface ChatbotConfig {
   id: string;
@@ -72,6 +74,7 @@ const Dashboard = () => {
     try {
       console.log('Verificando se usuário tem chatbot configurado...');
       
+      // Buscar apenas configurações do usuário logado
       const { data: configs, error } = await supabase
         .from('chatbot_configs')
         .select('*')
@@ -171,82 +174,9 @@ const Dashboard = () => {
         {/* Status do WhatsApp */}
         <WhatsAppConnectionStatus />
         
-        {/* Status da Instância Evolution */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center space-x-2 text-lg">
-              <Smartphone className="h-5 w-5" />
-              <span>Instância Evolution</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {chatbotConfig?.evo_instance_id ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Status:</span>
-                  <Badge 
-                    variant={instanceStatus?.connected ? "default" : "secondary"}
-                    className={instanceStatus?.connected ? "bg-green-500 hover:bg-green-600" : ""}
-                  >
-                    {instanceStatus?.connected ? (
-                      <>
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Conectado
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        {instanceStatus?.status === 'error' ? 'Erro' : 'Desconectado'}
-                      </>
-                    )}
-                  </Badge>
-                </div>
-                
-                <div className="text-xs space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Instância:</span>
-                    <code className="bg-gray-100 px-1 rounded text-xs">
-                      {chatbotConfig.evo_instance_id}
-                    </code>
-                  </div>
-                  
-                  {chatbotConfig.phone_number && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Telefone:</span>
-                      <span className="font-mono text-xs">{chatbotConfig.phone_number}</span>
-                    </div>
-                  )}
-                </div>
-                
-                {!instanceStatus?.connected && (
-                  <div className="mt-3">
-                    <Button 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => window.location.href = '/whatsapp-integration'}
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Configurar
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-600 mb-3">Nenhuma instância configurada</p>
-                <Button 
-                  size="sm"
-                  onClick={() => window.location.href = '/chatbot-setup'}
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  Configurar Chatbot
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
+        {/* Status do Chatbot com verificação automática */}
+        <ChatbotStatus />
+        
         {/* Configuração do Chatbot */}
         <Card>
           <CardHeader className="pb-3">

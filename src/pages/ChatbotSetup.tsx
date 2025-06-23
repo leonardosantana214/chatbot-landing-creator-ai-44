@@ -6,10 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Bot, CheckCircle } from 'lucide-react';
+import { Bot, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import BackButton from '@/components/BackButton';
+import QRCodeConnection from '@/components/QRCodeConnection';
 
 interface ChatbotConfig {
   nome_da_IA: string;
@@ -32,6 +34,7 @@ const ChatbotSetup = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
   
   // Dados do usuário podem vir da navegação (apenas para novos registros)
   const userData = location.state?.userData;
@@ -63,6 +66,7 @@ const ChatbotSetup = () => {
     const loadExistingConfig = async () => {
       if (isEditing && user) {
         try {
+          // Buscar apenas configurações do usuário logado
           const { data: configs, error } = await supabase
             .from('chatbot_configs')
             .select('*')
@@ -149,6 +153,7 @@ const ChatbotSetup = () => {
       setLoading(true);
       console.log('🔄 Atualizando configuração existente...');
 
+      // Atualizar apenas dados do usuário logado
       const { error } = await supabase
         .from('chatbot_configs')
         .update({
@@ -175,7 +180,12 @@ const ChatbotSetup = () => {
         description: "Configuração do chatbot atualizada com sucesso.",
       });
 
-      navigate('/dashboard');
+      // Mostrar QR Code se tiver nome da instância
+      if (config.nome_instancia) {
+        setShowQRCode(true);
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Erro ao atualizar configuração:', error);
       toast({
@@ -209,6 +219,14 @@ const ChatbotSetup = () => {
     });
   };
 
+  const handleQRConnectionSuccess = () => {
+    toast({
+      title: "WhatsApp conectado!",
+      description: "Seu chatbot está pronto para uso.",
+    });
+    navigate('/dashboard');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -216,14 +234,7 @@ const ChatbotSetup = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                onClick={() => navigate('/dashboard')}
-                className="flex items-center space-x-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Voltar</span>
-              </Button>
+              <BackButton />
               <div className="flex items-center space-x-3">
                 <img 
                   src="/lovable-uploads/0cf142c2-da7d-452c-a8d8-0413cfb6c023.png" 
@@ -241,8 +252,18 @@ const ChatbotSetup = () => {
 
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
+          {/* Mostrar QR Code se solicitado */}
+          {showQRCode && config.nome_instancia && (
+            <div className="mb-8">
+              <QRCodeConnection 
+                instanceName={config.nome_instancia}
+                onConnectionSuccess={handleQRConnectionSuccess}
+              />
+            </div>
+          )}
+
           {/* Progress Steps - apenas para novos registros */}
-          {!isEditing && (
+          {!isEditing && !showQRCode && (
             <div className="flex items-center justify-center mb-8">
               {[1, 2, 3].map((step) => (
                 <div key={step} className="flex items-center">
@@ -261,218 +282,220 @@ const ChatbotSetup = () => {
             </div>
           )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Bot className="h-5 w-5" />
-                <span>
-                  {isEditing ? 'Editar Configurações' : (
-                    currentStep === 1 ? 'Informações Básicas' :
-                    currentStep === 2 ? 'Configuração Avançada' :
-                    'Resumo e Finalização'
-                  )}
-                </span>
-              </CardTitle>
-            </CardHeader>
+          {!showQRCode && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Bot className="h-5 w-5" />
+                  <span>
+                    {isEditing ? 'Editar Configurações' : (
+                      currentStep === 1 ? 'Informações Básicas' :
+                      currentStep === 2 ? 'Configuração Avançada' :
+                      'Resumo e Finalização'
+                    )}
+                  </span>
+                </CardTitle>
+              </CardHeader>
 
-            <CardContent className="space-y-6">
-              {/* Renderizar formulário baseado no step atual ou modo de edição */}
-              {(currentStep === 1 || isEditing) && (
-                <div className="space-y-6">
-                  <div>
-                    <Label htmlFor="nome_da_IA">Nome da sua IA</Label>
-                    <Input
-                      id="nome_da_IA"
-                      value={config.nome_da_IA}
-                      onChange={(e) => setConfig({ ...config, nome_da_IA: e.target.value })}
-                      placeholder="Ex: Assistente Nina, Agatha, Sofia"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="empresa">Nome da empresa</Label>
-                    <Input
-                      id="empresa"
-                      value={config.empresa}
-                      onChange={(e) => setConfig({ ...config, empresa: e.target.value })}
-                      placeholder="Ex: Clínica São Paulo, TechCorps"
-                      required
-                    />
-                  </div>
-
-                  {config.nome_instancia && (
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <Label className="text-sm font-medium text-blue-800">Nome da Instância (Gerado Automaticamente)</Label>
-                      <p className="text-blue-700 font-mono text-sm mt-1">{config.nome_instancia}</p>
-                      <p className="text-xs text-blue-600 mt-1">
-                        Este será o identificador único da sua IA no WhatsApp
-                      </p>
+              <CardContent className="space-y-6">
+                {/* Renderizar formulário baseado no step atual ou modo de edição */}
+                {(currentStep === 1 || isEditing) && (
+                  <div className="space-y-6">
+                    <div>
+                      <Label htmlFor="nome_da_IA">Nome da sua IA</Label>
+                      <Input
+                        id="nome_da_IA"
+                        value={config.nome_da_IA}
+                        onChange={(e) => setConfig({ ...config, nome_da_IA: e.target.value })}
+                        placeholder="Ex: Assistente Nina, Agatha, Sofia"
+                        required
+                      />
                     </div>
-                  )}
 
-                  <div>
-                    <Label htmlFor="nicho">Nicho/Área de atuação</Label>
-                    <Select value={config.nicho} onValueChange={(value) => setConfig({ ...config, nicho: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione sua área de atuação" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="clinica">Clínica Médica</SelectItem>
-                        <SelectItem value="estetica">Estética</SelectItem>
-                        <SelectItem value="advocacia">Advocacia</SelectItem>
-                        <SelectItem value="consultoria">Consultoria</SelectItem>
-                        <SelectItem value="restaurante">Restaurante</SelectItem>
-                        <SelectItem value="loja">Loja/E-commerce</SelectItem>
-                        <SelectItem value="servicos">Prestação de Serviços</SelectItem>
-                        <SelectItem value="outro">Outro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div>
+                      <Label htmlFor="empresa">Nome da empresa</Label>
+                      <Input
+                        id="empresa"
+                        value={config.empresa}
+                        onChange={(e) => setConfig({ ...config, empresa: e.target.value })}
+                        placeholder="Ex: Clínica São Paulo, TechCorps"
+                        required
+                      />
+                    </div>
 
-                  <div>
-                    <Label htmlFor="personalidade">Personalidade da IA</Label>
-                    <Select value={config.personalidade} onValueChange={(value) => setConfig({ ...config, personalidade: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Como sua IA deve se comportar?" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="formal">Formal e profissional</SelectItem>
-                        <SelectItem value="amigavel">Amigável e descontraído</SelectItem>
-                        <SelectItem value="divertida">Descontraída e divertida, com emojis</SelectItem>
-                        <SelectItem value="tecnico">Técnico e detalhado</SelectItem>
-                        <SelectItem value="caloroso">Caloroso e acolhedor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
+                    {config.nome_instancia && (
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <Label className="text-sm font-medium text-blue-800">Nome da Instância (Gerado Automaticamente)</Label>
+                        <p className="text-blue-700 font-mono text-sm mt-1">{config.nome_instancia}</p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Este será o identificador único da sua IA no WhatsApp
+                        </p>
+                      </div>
+                    )}
 
-              {currentStep === 2 && !isEditing && (
-                <div className="space-y-6">
-                  <div>
-                    <Label htmlFor="objetivo">Objetivo principal da IA</Label>
-                    <Textarea
-                      id="objetivo"
-                      value={config.objetivo}
-                      onChange={(e) => setConfig({ ...config, objetivo: e.target.value })}
-                      placeholder="Ex: Atender clientes, agendar consultas, fornecer informações sobre serviços..."
-                      rows={3}
-                      required
-                    />
-                  </div>
+                    <div>
+                      <Label htmlFor="nicho">Nicho/Área de atuação</Label>
+                      <Select value={config.nicho} onValueChange={(value) => setConfig({ ...config, nicho: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione sua área de atuação" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="clinica">Clínica Médica</SelectItem>
+                          <SelectItem value="estetica">Estética</SelectItem>
+                          <SelectItem value="advocacia">Advocacia</SelectItem>
+                          <SelectItem value="consultoria">Consultoria</SelectItem>
+                          <SelectItem value="restaurante">Restaurante</SelectItem>
+                          <SelectItem value="loja">Loja/E-commerce</SelectItem>
+                          <SelectItem value="servicos">Prestação de Serviços</SelectItem>
+                          <SelectItem value="outro">Outro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <div>
-                    <Label htmlFor="regras">Regras e restrições</Label>
-                    <Textarea
-                      id="regras"
-                      value={config.regras}
-                      onChange={(e) => setConfig({ ...config, regras: e.target.value })}
-                      placeholder="Ex: Não dar conselhos médicos, sempre solicitar confirmação para agendamentos..."
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="fluxo">Fluxo de atendimento</Label>
-                    <Textarea
-                      id="fluxo"
-                      value={config.fluxo}
-                      onChange={(e) => setConfig({ ...config, fluxo: e.target.value })}
-                      placeholder="Ex: Saudação → Identificar necessidade → Agendar → Confirmar dados..."
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Funcionalidades (selecione as que deseja)</Label>
-                    <div className="grid grid-cols-1 gap-2 mt-2">
-                      {[
-                        'Planilha de dados',
-                        'Agendamentos',
-                        'Cadastro de clientes',
-                        'Lembretes automáticos',
-                        'Relatórios',
-                        'Integração CRM'
-                      ].map((func) => (
-                        <label key={func} className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            checked={config.funcionalidades.includes(func)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setConfig({
-                                  ...config,
-                                  funcionalidades: [...config.funcionalidades, func]
-                                });
-                              } else {
-                                setConfig({
-                                  ...config,
-                                  funcionalidades: config.funcionalidades.filter(f => f !== func)
-                                });
-                              }
-                            }}
-                            className="rounded border-gray-300"
-                          />
-                          <span className="text-sm">{func}</span>
-                        </label>
-                      ))}
+                    <div>
+                      <Label htmlFor="personalidade">Personalidade da IA</Label>
+                      <Select value={config.personalidade} onValueChange={(value) => setConfig({ ...config, personalidade: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Como sua IA deve se comportar?" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="formal">Formal e profissional</SelectItem>
+                          <SelectItem value="amigavel">Amigável e descontraído</SelectItem>
+                          <SelectItem value="divertida">Descontraída e divertida, com emojis</SelectItem>
+                          <SelectItem value="tecnico">Técnico e detalhado</SelectItem>
+                          <SelectItem value="caloroso">Caloroso e acolhedor</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {currentStep === 3 && !isEditing && userData && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">Configuração Concluída!</h3>
-                    <p className="text-gray-600 mb-6">
-                      Seu chatbot está pronto. Aqui está um resumo das configurações:
-                    </p>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                    <div><span className="font-medium">Usuário:</span> {userData.name}</div>
-                    <div><span className="font-medium">Email:</span> {userData.email}</div>
-                    <div><span className="font-medium">Empresa:</span> {userData.company}</div>
-                    <div><span className="font-medium">Nome da IA:</span> {config.nome_da_IA || 'Não informado'}</div>
-                    <div><span className="font-medium">Instância:</span> <code className="bg-gray-200 px-2 py-1 rounded text-sm">{config.nome_instancia}</code></div>
-                    <div><span className="font-medium">Nicho:</span> {config.nicho || 'Não informado'}</div>
-                    <div><span className="font-medium">Personalidade:</span> {config.personalidade || 'Não informado'}</div>
-                    <div><span className="font-medium">Funcionalidades:</span> {config.funcionalidades.join(', ') || 'Nenhuma selecionada'}</div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-between pt-6">
-                {!isEditing && currentStep > 1 && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setCurrentStep(currentStep - 1)}
-                  >
-                    Anterior
-                  </Button>
                 )}
 
-                <Button
-                  onClick={handleFinish}
-                  disabled={loading}
-                  className="bg-[#FF914C] hover:bg-[#FF7A2B] text-white px-8 ml-auto"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      {isEditing ? 'Salvando...' : 'Criando conta...'}
-                    </>
-                  ) : (
-                    isEditing ? 'Salvar Alterações' : 
-                    currentStep === 3 ? 'Criar Conta e Chatbot' : 'Próximo'
+                {currentStep === 2 && !isEditing && (
+                  <div className="space-y-6">
+                    <div>
+                      <Label htmlFor="objetivo">Objetivo principal da IA</Label>
+                      <Textarea
+                        id="objetivo"
+                        value={config.objetivo}
+                        onChange={(e) => setConfig({ ...config, objetivo: e.target.value })}
+                        placeholder="Ex: Atender clientes, agendar consultas, fornecer informações sobre serviços..."
+                        rows={3}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="regras">Regras e restrições</Label>
+                      <Textarea
+                        id="regras"
+                        value={config.regras}
+                        onChange={(e) => setConfig({ ...config, regras: e.target.value })}
+                        placeholder="Ex: Não dar conselhos médicos, sempre solicitar confirmação para agendamentos..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="fluxo">Fluxo de atendimento</Label>
+                      <Textarea
+                        id="fluxo"
+                        value={config.fluxo}
+                        onChange={(e) => setConfig({ ...config, fluxo: e.target.value })}
+                        placeholder="Ex: Saudação → Identificar necessidade → Agendar → Confirmar dados..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Funcionalidades (selecione as que deseja)</Label>
+                      <div className="grid grid-cols-1 gap-2 mt-2">
+                        {[
+                          'Planilha de dados',
+                          'Agendamentos',
+                          'Cadastro de clientes',
+                          'Lembretes automáticos',
+                          'Relatórios',
+                          'Integração CRM'
+                        ].map((func) => (
+                          <label key={func} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={config.funcionalidades.includes(func)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setConfig({
+                                    ...config,
+                                    funcionalidades: [...config.funcionalidades, func]
+                                  });
+                                } else {
+                                  setConfig({
+                                    ...config,
+                                    funcionalidades: config.funcionalidades.filter(f => f !== func)
+                                  });
+                                }
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm">{func}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {currentStep === 3 && !isEditing && userData && (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">Configuração Concluída!</h3>
+                      <p className="text-gray-600 mb-6">
+                        Seu chatbot está pronto. Aqui está um resumo das configurações:
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                      <div><span className="font-medium">Usuário:</span> {userData.name}</div>
+                      <div><span className="font-medium">Email:</span> {userData.email}</div>
+                      <div><span className="font-medium">Empresa:</span> {userData.company}</div>
+                      <div><span className="font-medium">Nome da IA:</span> {config.nome_da_IA || 'Não informado'}</div>
+                      <div><span className="font-medium">Instância:</span> <code className="bg-gray-200 px-2 py-1 rounded text-sm">{config.nome_instancia}</code></div>
+                      <div><span className="font-medium">Nicho:</span> {config.nicho || 'Não informado'}</div>
+                      <div><span className="font-medium">Personalidade:</span> {config.personalidade || 'Não informado'}</div>
+                      <div><span className="font-medium">Funcionalidades:</span> {config.funcionalidades.join(', ') || 'Nenhuma selecionada'}</div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-6">
+                  {!isEditing && currentStep > 1 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentStep(currentStep - 1)}
+                    >
+                      Anterior
+                    </Button>
                   )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+
+                  <Button
+                    onClick={handleFinish}
+                    disabled={loading}
+                    className="bg-[#FF914C] hover:bg-[#FF7A2B] text-white px-8 ml-auto"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        {isEditing ? 'Salvando...' : 'Criando conta...'}
+                      </>
+                    ) : (
+                      isEditing ? 'Salvar e Conectar WhatsApp' : 
+                      currentStep === 3 ? 'Criar Conta e Chatbot' : 'Próximo'
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
     </div>
