@@ -33,7 +33,7 @@ const ChatbotSetup = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // Dados do usuário podem vir da navegação OU do contexto de auth
+  // Dados do usuário podem vir da navegação (apenas para novos registros)
   const userData = location.state?.userData;
   const isNewRegistration = location.state?.paymentConfirmed;
   
@@ -50,13 +50,18 @@ const ChatbotSetup = () => {
     nome_instancia: ''
   });
 
+  // Determinar se é edição baseado no usuário logado
+  useEffect(() => {
+    if (user && !isNewRegistration) {
+      setIsEditing(true);
+      console.log('🔄 Usuário logado acessando para editar chatbot...');
+    }
+  }, [user, isNewRegistration]);
+
   // Carregar configuração existente se usuário estiver editando
   useEffect(() => {
     const loadExistingConfig = async () => {
-      if (user && !userData) {
-        console.log('🔄 Usuário logado acessando para editar chatbot...');
-        setIsEditing(true);
-        
+      if (isEditing && user) {
         try {
           const { data: configs, error } = await supabase
             .from('chatbot_configs')
@@ -94,9 +99,9 @@ const ChatbotSetup = () => {
     };
 
     loadExistingConfig();
-  }, [user, userData]);
+  }, [isEditing, user]);
 
-  // Verificar se é novo registro e precisa dos dados
+  // Verificar se é novo registro SEM dados (apenas para novos registros)
   useEffect(() => {
     if (isNewRegistration && !userData) {
       toast({
@@ -131,10 +136,8 @@ const ChatbotSetup = () => {
 
   const handleFinish = async () => {
     if (isEditing) {
-      // Atualizar configuração existente
       await updateExistingConfig();
     } else {
-      // Criar nova configuração (registro completo)
       await createNewConfig();
     }
   };
@@ -199,32 +202,12 @@ const ChatbotSetup = () => {
     console.log('👤 Dados do usuário:', userData);
     console.log('🤖 Configuração do chatbot:', config);
 
-    // Aqui deveria usar o hook useCompleteRegistration, mas para simplificar:
     toast({
       title: "Funcionalidade em desenvolvimento",
       description: "O registro completo será implementado em breve.",
       variant: "destructive",
     });
   };
-
-  // Se for usuário logado editando, não precisa dos dados da navegação
-  if (!isEditing && isNewRegistration && !userData) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardContent className="p-8 text-center">
-            <h3 className="text-xl font-semibold mb-2">Dados Necessários</h3>
-            <p className="text-gray-600 mb-4">
-              Você precisa preencher os dados pessoais primeiro.
-            </p>
-            <Button onClick={() => navigate('/payment')}>
-              Voltar ao Cadastro
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -235,7 +218,7 @@ const ChatbotSetup = () => {
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
-                onClick={() => navigate(isEditing ? '/dashboard' : '/payment')}
+                onClick={() => navigate('/dashboard')}
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -365,7 +348,7 @@ const ChatbotSetup = () => {
                 </div>
               )}
 
-              {currentStep === 2 && (
+              {currentStep === 2 && !isEditing && (
                 <div className="space-y-6">
                   <div>
                     <Label htmlFor="objetivo">Objetivo principal da IA</Label>
@@ -439,7 +422,7 @@ const ChatbotSetup = () => {
                 </div>
               )}
 
-              {currentStep === 3 && (
+              {currentStep === 3 && !isEditing && userData && (
                 <div className="space-y-6">
                   <div className="text-center">
                     <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
@@ -473,7 +456,7 @@ const ChatbotSetup = () => {
                 )}
 
                 <Button
-                  onClick={handleNext}
+                  onClick={handleFinish}
                   disabled={loading}
                   className="bg-[#FF914C] hover:bg-[#FF7A2B] text-white px-8 ml-auto"
                 >
