@@ -97,6 +97,7 @@ export type Database = {
       }
       clientes: {
         Row: {
+          API_EVO: string | null
           created_at: string
           email: string | null
           id: number
@@ -106,6 +107,7 @@ export type Database = {
           user_nome: string
         }
         Insert: {
+          API_EVO?: string | null
           created_at?: string
           email?: string | null
           id?: number
@@ -115,6 +117,7 @@ export type Database = {
           user_nome: string
         }
         Update: {
+          API_EVO?: string | null
           created_at?: string
           email?: string | null
           id?: number
@@ -135,7 +138,7 @@ export type Database = {
           nome_cliente: string
           profissional: string | null
           protocolo: string
-          telefone: string
+          "telefone-cliente": string
           tipo_atendimento: string
           updated_at: string
           user_id: string
@@ -149,7 +152,7 @@ export type Database = {
           nome_cliente: string
           profissional?: string | null
           protocolo: string
-          telefone: string
+          "telefone-cliente": string
           tipo_atendimento: string
           updated_at?: string
           user_id: string
@@ -163,7 +166,7 @@ export type Database = {
           nome_cliente?: string
           profissional?: string | null
           protocolo?: string
-          telefone?: string
+          "telefone-cliente"?: string
           tipo_atendimento?: string
           updated_at?: string
           user_id?: string
