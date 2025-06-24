@@ -10,7 +10,13 @@ interface EvolutionApiResponse {
   phone?: string;
 }
 
-export const useEvolutionApi = () => {
+interface UseEvolutionApiReturn {
+  isLoading: boolean;
+  checkInstanceStatus: (instanceName: string) => Promise<EvolutionApiResponse | null>;
+  connectInstance: (instanceName: string) => Promise<string | null>;
+}
+
+export const useEvolutionApi = (): UseEvolutionApiReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -22,7 +28,6 @@ export const useEvolutionApi = () => {
       setIsLoading(true);
       console.log('🔍 Verificando status da instância:', instanceName);
       
-      // Try the fetchInstances endpoint first (this seems to work based on your other code)
       const response = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
         method: 'GET',
         headers: {
@@ -37,8 +42,7 @@ export const useEvolutionApi = () => {
         const data = await response.json();
         console.log('✅ Instância encontrada:', data);
         
-        // Handle array response
-        let instanceData;
+        let instanceData: any;
         if (Array.isArray(data) && data.length > 0) {
           instanceData = data[0];
         } else {
@@ -55,7 +59,6 @@ export const useEvolutionApi = () => {
       } else {
         console.log('⚠️ Instância não encontrada, tentando criar nova...');
         
-        // If instance doesn't exist, try to create it
         const createResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/create`, {
           method: 'POST',
           headers: {
@@ -76,7 +79,6 @@ export const useEvolutionApi = () => {
             description: `A instância ${instanceName} foi criada com sucesso.`,
           });
           
-          // Return pending status while instance initializes
           return {
             instanceName,
             status: 'close',
@@ -89,7 +91,6 @@ export const useEvolutionApi = () => {
         }
       }
       
-      // Fallback response for error cases
       return {
         instanceName,
         status: 'close',
