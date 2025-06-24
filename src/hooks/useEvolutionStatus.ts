@@ -26,8 +26,8 @@ export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusRet
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Função principal de verificação de status sem useCallback
-  const checkStatus = async (instanceToCheck?: string): Promise<EvolutionStatus | null> => {
+  // Função principal de verificação de status com useCallback estável
+  const checkStatus = useCallback(async (instanceToCheck?: string): Promise<EvolutionStatus | null> => {
     const targetInstance = instanceToCheck || instanceName;
     if (!targetInstance) return null;
 
@@ -93,20 +93,21 @@ export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusRet
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [instanceName]);
 
-  // Função de refresh simples
-  const refreshStatus = async (): Promise<EvolutionStatus | null> => {
+  // Função de refresh simples que usa checkStatus
+  const refreshStatus = useCallback(async (): Promise<EvolutionStatus | null> => {
     return checkStatus();
-  };
+  }, [checkStatus]);
 
+  // Effect para executar a verificação inicial e setup do interval
   useEffect(() => {
     if (instanceName) {
       checkStatus();
       const interval = setInterval(() => checkStatus(), 30000);
       return () => clearInterval(interval);
     }
-  }, [instanceName]);
+  }, [instanceName, checkStatus]);
 
   return {
     status,
