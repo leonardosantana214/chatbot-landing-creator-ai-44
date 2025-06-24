@@ -101,5 +101,5 @@ export const useEvolutionStatus = (instanceName?: string) => {
     isLoading,
     checkStatus,
     refreshStatus
-  } as const;
+  };
 };
