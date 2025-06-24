@@ -17,16 +17,17 @@ interface UseEvolutionStatusReturn {
   refreshStatus: () => Promise<EvolutionStatus | null>;
 }
 
+// Constantes movidas para fora do componente para evitar dependências circulares
+const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
+const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
+
 export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusReturn => {
   const [status, setStatus] = useState<EvolutionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Move constants outside of useCallback to avoid circular dependencies
-  const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
-  const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
-
-  const checkStatus = useCallback(async (instanceToCheck?: string): Promise<EvolutionStatus | null> => {
+  // Função principal de verificação de status sem useCallback
+  const checkStatus = async (instanceToCheck?: string): Promise<EvolutionStatus | null> => {
     const targetInstance = instanceToCheck || instanceName;
     if (!targetInstance) return null;
 
@@ -92,11 +93,12 @@ export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusRet
     } finally {
       setIsLoading(false);
     }
-  }, [instanceName]); // Only instanceName as dependency
+  };
 
-  const refreshStatus = useCallback((): Promise<EvolutionStatus | null> => {
+  // Função de refresh simples
+  const refreshStatus = async (): Promise<EvolutionStatus | null> => {
     return checkStatus();
-  }, [checkStatus]);
+  };
 
   useEffect(() => {
     if (instanceName) {
@@ -104,7 +106,7 @@ export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusRet
       const interval = setInterval(() => checkStatus(), 30000);
       return () => clearInterval(interval);
     }
-  }, [instanceName, checkStatus]);
+  }, [instanceName]);
 
   return {
     status,
