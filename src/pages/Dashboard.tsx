@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +36,13 @@ interface DashboardStats {
   activeChats: number;
 }
 
+interface EvolutionStatus {
+  connected: boolean;
+  status: string;
+  instanceName: string;
+  lastCheck: Date;
+}
+
 const Dashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -49,12 +55,7 @@ const Dashboard = () => {
     totalConsultas: 0,
     activeChats: 0
   });
-  const [evolutionStatus, setEvolutionStatus] = useState<{
-    connected: boolean;
-    status: string;
-    instanceName: string;
-    lastCheck: Date;
-  } | null>(null);
+  const [evolutionStatus, setEvolutionStatus] = useState<EvolutionStatus | null>(null);
 
   const fetchUserProfile = async () => {
     if (!user) return;
@@ -80,25 +81,21 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      // Buscar contatos
       const { count: contactsCount } = await supabase
         .from('contacts')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
-      // Buscar mensagens
       const { count: messagesCount } = await supabase
         .from('messages')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
-      // Buscar consultas
       const { count: consultasCount } = await supabase
         .from('consulta')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
-      // Buscar chats ativos
       const { count: chatsCount } = await supabase
         .from('chats')
         .select('*', { count: 'exact', head: true })
@@ -184,7 +181,6 @@ const Dashboard = () => {
       fetchDashboardStats();
       checkChatbotStatus();
       
-      // Auto-refresh a cada 30 segundos
       const interval = setInterval(() => {
         checkChatbotStatus();
       }, 30000);
@@ -327,7 +323,6 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* QR Code Connection */}
         {chatbotConfig?.evo_instance_id && !evolutionStatus?.connected && (
           <QRCodeConnection 
             instanceName={chatbotConfig.evo_instance_id}
@@ -341,7 +336,6 @@ const Dashboard = () => {
           />
         )}
 
-        {/* Chatbot Info quando conectado */}
         {chatbotConfig && evolutionStatus?.connected && (
           <Card>
             <CardHeader>

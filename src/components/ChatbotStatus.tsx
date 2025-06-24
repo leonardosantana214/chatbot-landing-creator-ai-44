@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,10 +13,17 @@ interface ChatbotStatusProps {
   compact?: boolean;
 }
 
+interface StatusState {
+  isActive: boolean;
+  instanceName: string;
+  connected: boolean;
+  lastCheck: Date;
+}
+
 const ChatbotStatus = ({ onStatusChange, compact = false }: ChatbotStatusProps) => {
   const { user } = useAuth();
   const { checkInstanceStatus, isLoading } = useEvolutionApi();
-  const [status, setStatus] = useState({
+  const [status, setStatus] = useState<StatusState>({
     isActive: false,
     instanceName: '',
     connected: false,
@@ -77,6 +85,16 @@ const ChatbotStatus = ({ onStatusChange, compact = false }: ChatbotStatusProps) 
     return 'Inativo';
   };
 
+  const getStatusMessage = (statusData: StatusState) => {
+    if (statusData.isActive && statusData.connected) {
+      return 'Chatbot funcionando normalmente';
+    }
+    if (statusData.isActive && !statusData.connected) {
+      return 'Chatbot indisponível no momento. Por favor, tente novamente mais tarde.';
+    }
+    return 'Chatbot não configurado ou inativo';
+  };
+
   if (compact) {
     return (
       <div className="flex items-center space-x-2">
@@ -129,7 +147,7 @@ const ChatbotStatus = ({ onStatusChange, compact = false }: ChatbotStatusProps) 
         </div>
 
         <div className="text-sm text-gray-600">
-          {getStatusMessage()}
+          {getStatusMessage(status)}
         </div>
 
         {status.instanceName && (
@@ -145,15 +163,5 @@ const ChatbotStatus = ({ onStatusChange, compact = false }: ChatbotStatusProps) 
     </Card>
   );
 };
-
-const getStatusMessage = (status: any) => {
-    if (status.isActive && status.connected) {
-      return 'Chatbot funcionando normalmente';
-    }
-    if (status.isActive && !status.connected) {
-      return 'Chatbot indisponível no momento. Por favor, tente novamente mais tarde.';
-    }
-    return 'Chatbot não configurado ou inativo';
-  };
 
 export default ChatbotStatus;
