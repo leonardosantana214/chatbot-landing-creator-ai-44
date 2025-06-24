@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EvolutionStatus {
@@ -10,7 +10,14 @@ interface EvolutionStatus {
   lastCheck: Date;
 }
 
-export const useEvolutionStatus = (instanceName?: string) => {
+interface UseEvolutionStatusReturn {
+  status: EvolutionStatus | null;
+  isLoading: boolean;
+  checkStatus: (instanceToCheck?: string) => Promise<EvolutionStatus | null>;
+  refreshStatus: () => Promise<EvolutionStatus | null>;
+}
+
+export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusReturn => {
   const [status, setStatus] = useState<EvolutionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -18,7 +25,7 @@ export const useEvolutionStatus = (instanceName?: string) => {
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
 
-  const checkStatus = async (instanceToCheck?: string): Promise<EvolutionStatus | null> => {
+  const checkStatus = useCallback(async (instanceToCheck?: string): Promise<EvolutionStatus | null> => {
     const targetInstance = instanceToCheck || instanceName;
     if (!targetInstance) return null;
 
@@ -84,11 +91,11 @@ export const useEvolutionStatus = (instanceName?: string) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [instanceName, API_KEY, EVOLUTION_BASE_URL]);
 
-  const refreshStatus = (): Promise<EvolutionStatus | null> => {
+  const refreshStatus = useCallback((): Promise<EvolutionStatus | null> => {
     return checkStatus();
-  };
+  }, [checkStatus]);
 
   useEffect(() => {
     if (instanceName) {
@@ -96,7 +103,7 @@ export const useEvolutionStatus = (instanceName?: string) => {
       const interval = setInterval(() => checkStatus(), 30000);
       return () => clearInterval(interval);
     }
-  }, [instanceName]);
+  }, [instanceName, checkStatus]);
 
   return {
     status,
