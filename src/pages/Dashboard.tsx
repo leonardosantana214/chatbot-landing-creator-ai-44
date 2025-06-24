@@ -3,13 +3,11 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, AlertCircle, Smartphone, Users, MessageSquare, Calendar, RefreshCw } from 'lucide-react';
+import { CheckCircle, AlertCircle, Smartphone, Users, MessageSquare, Calendar, RefreshCw, User, Building, Phone, Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useEvolutionApi } from '@/hooks/useEvolutionApi';
-import WhatsAppConnectionStatus from '@/components/WhatsAppConnectionStatus';
-import ChatbotStatus from '@/components/ChatbotStatus';
 import QRCodeConnection from '@/components/QRCodeConnection';
 
 interface ChatbotConfig {
@@ -24,56 +22,105 @@ interface ChatbotConfig {
   updated_at: string;
 }
 
+interface UserProfile {
+  name: string | null;
+  email: string | null;
+  company: string | null;
+  whatsapp: string | null;
+  instance_id: string | null;
+}
+
+interface DashboardStats {
+  totalContacts: number;
+  totalMessages: number;
+  totalConsultas: number;
+  activeChats: number;
+}
+
 const Dashboard = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { isLoading, checkInstanceStatus } = useEvolutionApi();
   const [chatbotConfig, setChatbotConfig] = useState<ChatbotConfig | null>(null);
-  const [instanceStatus, setInstanceStatus] = useState<{
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    totalContacts: 0,
+    totalMessages: 0,
+    totalConsultas: 0,
+    activeChats: 0
+  });
+  const [evolutionStatus, setEvolutionStatus] = useState<{
     connected: boolean;
     status: string;
     instanceName: string;
+    lastCheck: Date;
   } | null>(null);
 
-  const [userProfile, setUserProfile] = useState<{
-    name: string | null;
-    email: string | null;
-    company: string | null;
-  } | null>(null);
+  const fetchUserProfile = async () => {
+    if (!user) return;
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (user) {
-        try {
-          const { data, error } = await supabase
-            .from('user_profiles')
-            .select('name, email, company')
-            .eq('id', user.id)
-            .single();
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('name, email, company, whatsapp, instance_id')
+        .eq('id', user.id)
+        .single();
 
-          if (error) {
-            console.error('Erro ao buscar perfil:', error);
-          } else {
-            setUserProfile({
-              name: data?.name || null,
-              email: data?.email || null,
-              company: data?.company || null,
-            });
-          }
-        } catch (error) {
-          console.error('Erro ao buscar perfil:', error);
-        }
+      if (error) {
+        console.error('Erro ao buscar perfil:', error);
+      } else {
+        setUserProfile(data);
       }
-    };
+    } catch (error) {
+      console.error('Erro ao buscar perfil:', error);
+    }
+  };
 
-    fetchUserProfile();
-  }, [user]);
+  const fetchDashboardStats = async () => {
+    if (!user) return;
+
+    try {
+      // Buscar contatos
+      const { count: contactsCount } = await supabase
+        .from('contacts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      // Buscar mensagens
+      const { count: messagesCount } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      // Buscar consultas
+      const { count: consultasCount } = await supabase
+        .from('consulta')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      // Buscar chats ativos
+      const { count: chatsCount } = await supabase
+        .from('chats')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      setDashboardStats({
+        totalContacts: contactsCount || 0,
+        totalMessages: messagesCount || 0,
+        totalConsultas: consultasCount || 0,
+        activeChats: chatsCount || 0
+      });
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas:', error);
+    }
+  };
 
   const checkChatbotStatus = async () => {
     if (!user) return;
 
     try {
-      console.log('Verificando se usuário tem chatbot configurado...');
+      console.log('Verificando configuração do chatbot...');
       
       const { data: configs, error } = await supabase
         .from('chatbot_configs')
@@ -86,35 +133,29 @@ const Dashboard = () => {
         return;
       }
 
-      console.log('Configurações encontradas:', configs);
-
       if (configs && configs.length > 0) {
         const config = configs[0];
         setChatbotConfig(config);
         
         if (config.evo_instance_id) {
-          console.log('Verificando status da instância:', config.evo_instance_id);
+          console.log('Verificando status da Evolution API:', config.evo_instance_id);
           const status = await checkInstanceStatus(config.evo_instance_id);
           
           if (status) {
-            setInstanceStatus({
+            setEvolutionStatus({
               connected: status.connected,
               status: status.status,
-              instanceName: status.instanceName
+              instanceName: status.instanceName,
+              lastCheck: new Date()
             });
             
-            console.log('Status retornado da Evolution API:', status);
+            console.log('Status da Evolution API:', status);
           } else {
-            setInstanceStatus({
+            setEvolutionStatus({
               connected: false,
               status: 'error',
-              instanceName: config.evo_instance_id
-            });
-            
-            toast({
-              title: "Problema na instância",
-              description: `A instância ${config.evo_instance_id} precisa ser configurada novamente.`,
-              variant: "destructive",
+              instanceName: config.evo_instance_id,
+              lastCheck: new Date()
             });
           }
         }
@@ -124,18 +165,32 @@ const Dashboard = () => {
     }
   };
 
-  const handleRefreshStatus = async () => {
-    if (chatbotConfig?.evo_instance_id) {
-      await checkChatbotStatus();
-      toast({
-        title: "Status atualizado",
-        description: "O status da instância foi verificado novamente.",
-      });
-    }
+  const handleRefreshAll = async () => {
+    await Promise.all([
+      fetchUserProfile(),
+      fetchDashboardStats(),
+      checkChatbotStatus()
+    ]);
+    
+    toast({
+      title: "Dados atualizados",
+      description: "Todas as informações foram atualizadas com sucesso.",
+    });
   };
 
   useEffect(() => {
-    checkChatbotStatus();
+    if (user) {
+      fetchUserProfile();
+      fetchDashboardStats();
+      checkChatbotStatus();
+      
+      // Auto-refresh a cada 30 segundos
+      const interval = setInterval(() => {
+        checkChatbotStatus();
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    }
   }, [user]);
 
   if (!user) {
@@ -149,109 +204,250 @@ const Dashboard = () => {
     );
   }
 
+  const getStatusColor = () => {
+    if (evolutionStatus?.connected) return 'bg-green-500';
+    if (evolutionStatus?.status === 'error') return 'bg-red-500';
+    return 'bg-yellow-500';
+  };
+
+  const getStatusText = () => {
+    if (evolutionStatus?.connected) return 'Conectado com sucesso';
+    if (evolutionStatus?.status === 'error') return 'Erro de conexão';
+    return 'Desconectado';
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-2">Gerencie seus chatbots e acompanhe o desempenho</p>
+          <p className="text-gray-600 mt-2">Painel centralizado de controle</p>
         </div>
         
-        {chatbotConfig && (
-          <Button 
-            onClick={handleRefreshStatus} 
-            disabled={isLoading}
-            variant="outline"
-            size="sm"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Atualizar Status
-          </Button>
-        )}
+        <Button 
+          onClick={handleRefreshAll} 
+          disabled={isLoading}
+          variant="outline"
+          size="sm"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          Atualizar Tudo
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Status do WhatsApp */}
-        <WhatsAppConnectionStatus />
-        
-        {/* Status do Chatbot com verificação automática */}
-        <ChatbotStatus />
-        
-        {/* QR Code Connection - substituindo configuração */}
-        {chatbotConfig?.evo_instance_id ? (
+      {/* Perfil do Usuário */}
+      {userProfile && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <User className="h-5 w-5" />
+              <span>Informações do Usuário</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="flex items-center space-x-2">
+                <User className="h-4 w-4 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-600">Nome</p>
+                  <p className="font-medium">{userProfile.name || 'Não informado'}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Mail className="h-4 w-4 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-600">Email</p>
+                  <p className="font-medium">{userProfile.email || 'Não informado'}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Building className="h-4 w-4 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-600">Empresa</p>
+                  <p className="font-medium">{userProfile.company || 'Não informado'}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Phone className="h-4 w-4 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-600">WhatsApp</p>
+                  <p className="font-medium">{userProfile.whatsapp || 'Não informado'}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Status do WhatsApp/Evolution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Smartphone className="h-5 w-5" />
+                <span>Status WhatsApp Evolution</span>
+              </div>
+              <Badge className={`${getStatusColor()} text-white`}>
+                {evolutionStatus?.connected ? (
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                ) : (
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                )}
+                {getStatusText()}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {evolutionStatus ? (
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Instância:</span>
+                  <span className="text-sm font-mono">{evolutionStatus.instanceName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Status:</span>
+                  <span className="text-sm">{evolutionStatus.status}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Última verificação:</span>
+                  <span className="text-sm">{evolutionStatus.lastCheck.toLocaleTimeString()}</span>
+                </div>
+                {chatbotConfig?.phone_number && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Telefone:</span>
+                    <span className="text-sm font-mono">{chatbotConfig.phone_number}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-600">Nenhuma instância configurada</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* QR Code Connection */}
+        {chatbotConfig?.evo_instance_id && !evolutionStatus?.connected && (
           <QRCodeConnection 
             instanceName={chatbotConfig.evo_instance_id}
             onConnectionSuccess={() => {
               toast({
-                title: "Conectado!",
-                description: "WhatsApp conectado com sucesso!",
+                title: "Conectado com sucesso!",
+                description: "WhatsApp conectado à Evolution API",
               });
               checkChatbotStatus();
             }}
           />
-        ) : (
+        )}
+
+        {/* Chatbot Info quando conectado */}
+        {chatbotConfig && evolutionStatus?.connected && (
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center space-x-2 text-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
                 <MessageSquare className="h-5 w-5" />
-                <span>Chatbot</span>
+                <span>Chatbot Ativo</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-4">
-                <MessageSquare className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-600 mb-3">Nenhum chatbot configurado</p>
-                <Button 
-                  size="sm"
-                  onClick={() => window.location.href = '/chatbot-setup'}
-                >
-                  <Smartphone className="h-4 w-4 mr-2" />
-                  Criar Chatbot
-                </Button>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Nome:</span>
+                  <span className="text-sm font-medium">{chatbotConfig.bot_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Tipo:</span>
+                  <span className="text-sm">{chatbotConfig.service_type}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Tom:</span>
+                  <span className="text-sm">{chatbotConfig.tone}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Status:</span>
+                  <Badge className="bg-green-500 text-white">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Ativo
+                  </Badge>
+                </div>
               </div>
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" 
-              onClick={() => window.location.href = '/contacts'}>
+      {/* Estatísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card>
           <CardContent className="p-6 text-center">
             <Users className="h-8 w-8 text-blue-500 mx-auto mb-3" />
-            <h3 className="font-semibold mb-1">Contatos</h3>
-            <p className="text-sm text-gray-600">Gerencie seus contatos</p>
+            <h3 className="text-2xl font-bold">{dashboardStats.totalContacts}</h3>
+            <p className="text-sm text-gray-600">Contatos</p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" 
-              onClick={() => window.location.href = '/messages'}>
+        <Card>
           <CardContent className="p-6 text-center">
             <MessageSquare className="h-8 w-8 text-green-500 mx-auto mb-3" />
-            <h3 className="font-semibold mb-1">Mensagens</h3>
-            <p className="text-sm text-gray-600">Visualize conversas</p>
+            <h3 className="text-2xl font-bold">{dashboardStats.totalMessages}</h3>
+            <p className="text-sm text-gray-600">Mensagens</p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" 
-              onClick={() => window.location.href = '/consultas'}>
+        <Card>
           <CardContent className="p-6 text-center">
             <Calendar className="h-8 w-8 text-purple-500 mx-auto mb-3" />
-            <h3 className="font-semibold mb-1">Consultas</h3>
-            <p className="text-sm text-gray-600">Agende consultas</p>
+            <h3 className="text-2xl font-bold">{dashboardStats.totalConsultas}</h3>
+            <p className="text-sm text-gray-600">Consultas</p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer" 
-              onClick={() => window.location.href = '/chatbot-setup'}>
+        <Card>
           <CardContent className="p-6 text-center">
             <Smartphone className="h-8 w-8 text-orange-500 mx-auto mb-3" />
-            <h3 className="font-semibold mb-1">Configurações</h3>
-            <p className="text-sm text-gray-600">Ajustar preferências</p>
+            <h3 className="text-2xl font-bold">{dashboardStats.activeChats}</h3>
+            <p className="text-sm text-gray-600">Chats Ativos</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Ações Rápidas - apenas as essenciais */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Ações Rápidas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button 
+              variant="outline" 
+              className="h-20 flex flex-col space-y-2"
+              onClick={() => window.location.href = '/contacts'}
+            >
+              <Users className="h-6 w-6" />
+              <span>Gerenciar Contatos</span>
+            </Button>
+
+            <Button 
+              variant="outline" 
+              className="h-20 flex flex-col space-y-2"
+              onClick={() => window.location.href = '/messages'}
+            >
+              <MessageSquare className="h-6 w-6" />
+              <span>Ver Mensagens</span>
+            </Button>
+
+            <Button 
+              variant="outline" 
+              className="h-20 flex flex-col space-y-2"
+              onClick={() => window.location.href = '/chatbot-setup'}
+            >
+              <Smartphone className="h-6 w-6" />
+              <span>Configurar Chatbot</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

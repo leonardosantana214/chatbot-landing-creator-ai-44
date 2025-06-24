@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,9 +9,10 @@ import { useEvolutionApi } from '@/hooks/useEvolutionApi';
 
 interface ChatbotStatusProps {
   onStatusChange?: (isActive: boolean) => void;
+  compact?: boolean;
 }
 
-const ChatbotStatus = ({ onStatusChange }: ChatbotStatusProps) => {
+const ChatbotStatus = ({ onStatusChange, compact = false }: ChatbotStatusProps) => {
   const { user } = useAuth();
   const { checkInstanceStatus, isLoading } = useEvolutionApi();
   const [status, setStatus] = useState({
@@ -72,20 +72,33 @@ const ChatbotStatus = ({ onStatusChange }: ChatbotStatusProps) => {
   };
 
   const getStatusText = () => {
-    if (status.isActive && status.connected) return 'Online';
+    if (status.isActive && status.connected) return 'Conectado com sucesso';
     if (status.isActive && !status.connected) return 'Desconectado';
     return 'Inativo';
   };
 
-  const getStatusMessage = () => {
-    if (status.isActive && status.connected) {
-      return 'Chatbot funcionando normalmente';
-    }
-    if (status.isActive && !status.connected) {
-      return 'Chatbot indisponível no momento. Por favor, tente novamente mais tarde.';
-    }
-    return 'Chatbot não configurado ou inativo';
-  };
+  if (compact) {
+    return (
+      <div className="flex items-center space-x-2">
+        <Badge className={`${getStatusColor()} text-white`}>
+          {status.isActive && status.connected ? (
+            <CheckCircle className="h-3 w-3 mr-1" />
+          ) : (
+            <AlertCircle className="h-3 w-3 mr-1" />
+          )}
+          {getStatusText()}
+        </Badge>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={checkChatbotStatus}
+          disabled={isLoading}
+        >
+          <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Card>
@@ -132,5 +145,15 @@ const ChatbotStatus = ({ onStatusChange }: ChatbotStatusProps) => {
     </Card>
   );
 };
+
+const getStatusMessage = (status: any) => {
+    if (status.isActive && status.connected) {
+      return 'Chatbot funcionando normalmente';
+    }
+    if (status.isActive && !status.connected) {
+      return 'Chatbot indisponível no momento. Por favor, tente novamente mais tarde.';
+    }
+    return 'Chatbot não configurado ou inativo';
+  };
 
 export default ChatbotStatus;
