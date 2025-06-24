@@ -10,14 +10,7 @@ interface EvolutionStatus {
   lastCheck: Date;
 }
 
-interface UseEvolutionStatusReturn {
-  status: EvolutionStatus | null;
-  isLoading: boolean;
-  checkStatus: (instanceToCheck?: string) => Promise<EvolutionStatus | null>;
-  refreshStatus: () => Promise<EvolutionStatus | null>;
-}
-
-export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusReturn => {
+export const useEvolutionStatus = (instanceName?: string) => {
   const [status, setStatus] = useState<EvolutionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -93,7 +86,7 @@ export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusRet
     }
   };
 
-  const refreshStatus = (): Promise<EvolutionStatus | null> => {
+  const refreshStatus = () => {
     return checkStatus();
   };
 
