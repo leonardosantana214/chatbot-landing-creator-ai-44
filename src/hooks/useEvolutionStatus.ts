@@ -22,6 +22,7 @@ export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusRet
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  // Move constants outside of useCallback to avoid circular dependencies
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
 
@@ -91,7 +92,7 @@ export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusRet
     } finally {
       setIsLoading(false);
     }
-  }, [instanceName, API_KEY, EVOLUTION_BASE_URL]);
+  }, [instanceName]); // Only instanceName as dependency
 
   const refreshStatus = useCallback((): Promise<EvolutionStatus | null> => {
     return checkStatus();
