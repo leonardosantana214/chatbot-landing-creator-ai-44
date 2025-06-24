@@ -10,7 +10,14 @@ interface EvolutionStatus {
   lastCheck: Date;
 }
 
-export const useEvolutionStatus = (instanceName?: string) => {
+interface UseEvolutionStatusReturn {
+  status: EvolutionStatus | null;
+  isLoading: boolean;
+  checkStatus: (instanceToCheck?: string) => Promise<EvolutionStatus | null>;
+  refreshStatus: () => Promise<EvolutionStatus | null>;
+}
+
+export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusReturn => {
   const [status, setStatus] = useState<EvolutionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -18,7 +25,7 @@ export const useEvolutionStatus = (instanceName?: string) => {
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
 
-  const checkStatus = async (instanceToCheck?: string) => {
+  const checkStatus = async (instanceToCheck?: string): Promise<EvolutionStatus | null> => {
     const targetInstance = instanceToCheck || instanceName;
     if (!targetInstance) return null;
 
@@ -86,6 +93,10 @@ export const useEvolutionStatus = (instanceName?: string) => {
     }
   };
 
+  const refreshStatus = (): Promise<EvolutionStatus | null> => {
+    return checkStatus();
+  };
+
   useEffect(() => {
     if (instanceName) {
       checkStatus();
@@ -98,6 +109,6 @@ export const useEvolutionStatus = (instanceName?: string) => {
     status,
     isLoading,
     checkStatus,
-    refreshStatus: () => checkStatus()
+    refreshStatus
   };
 };

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, AlertCircle, Users, MessageSquare, Calendar, RefreshCw, User, Building, Phone, Mail, Bot, Settings, TestTube } from 'lucide-react';
+import { CheckCircle, AlertCircle, Users, MessageSquare, Calendar, RefreshCw, Bot, Settings, TestTube } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -49,7 +49,7 @@ const Dashboard = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = async (): Promise<void> => {
     if (!user) return;
 
     try {
@@ -69,7 +69,7 @@ const Dashboard = () => {
     }
   };
 
-  const fetchDashboardStats = async () => {
+  const fetchDashboardStats = async (): Promise<void> => {
     if (!user) return;
 
     try {
@@ -105,7 +105,7 @@ const Dashboard = () => {
     }
   };
 
-  const fetchChatbotConfig = async () => {
+  const fetchChatbotConfig = async (): Promise<void> => {
     if (!user) return;
 
     try {
@@ -130,7 +130,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleRefreshAll = async () => {
+  const handleRefreshAll = async (): Promise<void> => {
     setIsLoading(true);
     await Promise.all([
       fetchUserProfile(),
@@ -143,6 +143,14 @@ const Dashboard = () => {
       title: "Dados atualizados",
       description: "Todas as informações foram atualizadas com sucesso.",
     });
+  };
+
+  const handleConnectionSuccess = (): void => {
+    toast({
+      title: "WhatsApp Conectado!",
+      description: "Conexão estabelecida com sucesso",
+    });
+    fetchChatbotConfig();
   };
 
   useEffect(() => {
@@ -217,13 +225,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <WhatsAppStatusCard 
           instanceName={chatbotConfig?.evo_instance_id || undefined}
-          onConnectionSuccess={() => {
-            toast({
-              title: "WhatsApp Conectado!",
-              description: "Conexão estabelecida com sucesso",
-            });
-            fetchChatbotConfig();
-          }}
+          onConnectionSuccess={handleConnectionSuccess}
         />
 
         {chatbotConfig ? (
@@ -340,7 +342,6 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Ações Rápidas - Simplificado */}
       <Card>
         <CardHeader>
           <CardTitle>Ações Rápidas</CardTitle>
