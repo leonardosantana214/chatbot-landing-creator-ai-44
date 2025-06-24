@@ -18,7 +18,7 @@ export const useEvolutionStatus = (instanceName?: string) => {
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
 
-  const checkStatus = async (instanceToCheck?: string) => {
+  const checkStatus = async (instanceToCheck?: string): Promise<EvolutionStatus | null> => {
     const targetInstance = instanceToCheck || instanceName;
     if (!targetInstance) return null;
 
@@ -86,7 +86,9 @@ export const useEvolutionStatus = (instanceName?: string) => {
     }
   };
 
-  const refreshStatus = () => checkStatus();
+  const refreshStatus = (): Promise<EvolutionStatus | null> => {
+    return checkStatus();
+  };
 
   useEffect(() => {
     if (instanceName) {
