@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, CreditCard, User, Mail, Phone, Building, Pix, FileText, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CreditCard, User, Mail, Phone, Building, FileText, CheckCircle, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Payment = () => {
@@ -263,7 +263,7 @@ const Payment = () => {
                   onClick={() => setPaymentMethod('pix')}
                 >
                   <div className="flex items-center space-x-3">
-                    <Pix className="h-8 w-8 text-[#FF914C]" />
+                    <DollarSign className="h-8 w-8 text-[#FF914C]" />
                     <div>
                       <h4 className="font-semibold">PIX</h4>
                       <p className="text-sm text-gray-600">Aprovação instantânea</p>

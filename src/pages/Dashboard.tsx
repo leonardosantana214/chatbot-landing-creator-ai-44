@@ -134,7 +134,7 @@ const Dashboard = () => {
           contact_phone: conv.contact?.phone || '',
           last_message: conv.messages?.[0]?.content || 'Sem mensagens',
           last_message_time: conv.last_message_at || conv.messages?.[0]?.created_at || '',
-          status: conv.status || 'active',
+          status: (conv.status as 'active' | 'waiting' | 'closed') || 'active',
           unread_count: conv.unread_count || 0
         }));
         

@@ -48,7 +48,21 @@ const Messages = () => {
         .limit(100);
 
       if (error) throw error;
-      setMessages(data || []);
+      
+      const formattedMessages: Message[] = (data || []).map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        direction: (msg.direction as 'inbound' | 'outbound') || 'inbound',
+        message_type: msg.message_type || 'text',
+        status: msg.status || 'sent',
+        created_at: msg.created_at,
+        contact: {
+          name: msg.contact?.name || 'Contato desconhecido',
+          phone: msg.contact?.phone || ''
+        }
+      }));
+      
+      setMessages(formattedMessages);
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
       // Dados mock para demonstração
