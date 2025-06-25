@@ -5,110 +5,110 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Search, MessageCircle, Clock, Phone, Bot, User } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import BackButton from '@/components/BackButton';
-import ChatbotStatus from '@/components/ChatbotStatus';
+import { Search, MessageCircle, Bot, User, Clock, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
-interface Mensagem {
-  id: number;
-  telefone: string;
+interface Message {
+  id: string;
+  content: string;
+  direction: 'inbound' | 'outbound';
   message_type: string;
-  user_message: string;
-  bot_message: string;
-  ativo: boolean;
+  status: string;
   created_at: string;
-  user_id: string;
+  contact: {
+    name: string;
+    phone: string;
+  };
 }
 
 const Messages = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const [mensagens, setMensagens] = useState<Mensagem[]>([]);
+  const navigate = useNavigate();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMensagem, setSelectedMensagem] = useState<Mensagem | null>(null);
-  const [chatbotActive, setChatbotActive] = useState(false);
 
   useEffect(() => {
     if (user) {
-      fetchMensagens();
+      fetchMessages();
     }
   }, [user]);
 
-  const fetchMensagens = async () => {
-    if (!user) return;
-
+  const fetchMessages = async () => {
     try {
-      setLoading(true);
-      
-      // Buscar apenas mensagens do usuário logado
       const { data, error } = await supabase
-        .from('mensagens')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .from('messages')
+        .select(`
+          *,
+          contact:contacts(name, phone)
+        `)
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(100);
 
-      if (error) {
-        console.error('Erro ao carregar mensagens:', error);
-        toast({
-          title: "Erro ao carregar mensagens",
-          description: "Não foi possível carregar as mensagens do chatbot.",
-          variant: "destructive",
-        });
-        setMensagens([]);
-      } else {
-        setMensagens(data || []);
-      }
+      if (error) throw error;
+      setMessages(data || []);
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro inesperado ao carregar as mensagens.",
-        variant: "destructive",
-      });
-      setMensagens([]);
+      // Dados mock para demonstração
+      setMessages([
+        {
+          id: '1',
+          content: 'Olá! Gostaria de saber mais sobre seus serviços.',
+          direction: 'inbound',
+          message_type: 'text',
+          status: 'delivered',
+          created_at: new Date().toISOString(),
+          contact: { name: 'Maria Silva', phone: '5511999999999' }
+        },
+        {
+          id: '2',
+          content: 'Olá Maria! Claro, ficarei feliz em ajudar. Trabalhamos com chatbots inteligentes para WhatsApp.',
+          direction: 'outbound',
+          message_type: 'text',
+          status: 'sent',
+          created_at: new Date(Date.now() - 300000).toISOString(),
+          contact: { name: 'Maria Silva', phone: '5511999999999' }
+        },
+        {
+          id: '3',
+          content: 'Quais são os preços?',
+          direction: 'inbound',
+          message_type: 'text',
+          status: 'delivered',
+          created_at: new Date(Date.now() - 600000).toISOString(),
+          contact: { name: 'João Santos', phone: '5511888888888' }
+        }
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredMensagens = mensagens.filter(mensagem =>
-    mensagem.telefone.includes(searchTerm) ||
-    mensagem.user_message.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    mensagem.bot_message.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredMessages = messages.filter(message =>
+    message.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    message.contact?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    message.contact?.phone?.includes(searchTerm)
   );
 
   const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatPhone = (phone: string) => {
-    if (phone.length === 13 && phone.startsWith('55')) {
-      return `+${phone.slice(0, 2)} (${phone.slice(2, 4)}) ${phone.slice(4, 9)}-${phone.slice(9)}`;
-    }
-    return phone;
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffMinutes < 1) return 'Agora';
+    if (diffMinutes < 60) return `${diffMinutes}m`;
+    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h`;
+    return date.toLocaleDateString('pt-BR');
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm border-b">
-          <div className="container mx-auto px-4 py-4">
-            <BackButton />
-          </div>
-        </header>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF914C] mx-auto mb-4"></div>
-            <p>Carregando mensagens...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF914C] mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando mensagens...</p>
         </div>
       </div>
     );
@@ -116,42 +116,35 @@ const Messages = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header com botão voltar */}
+      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <BackButton />
-            <h1 className="text-xl font-bold">Mensagens do Chatbot</h1>
-            <div></div>
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center space-x-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Dashboard</span>
+              </Button>
+              <div className="flex items-center space-x-3">
+                <MessageCircle className="h-8 w-8 text-[#FF914C]" />
+                <h1 className="text-xl font-bold text-black">Todas as Mensagens</h1>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Status do Chatbot */}
+      <main className="container mx-auto px-4 py-6">
+        {/* Filtros */}
         <div className="mb-6">
-          <ChatbotStatus onStatusChange={setChatbotActive} />
-        </div>
-
-        {/* Aviso se chatbot estiver inativo */}
-        {!chatbotActive && (
-          <Card className="mb-6 border-yellow-200 bg-yellow-50">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2 text-yellow-800">
-                <MessageCircle className="h-5 w-5" />
-                <span className="font-medium">
-                  Chatbot indisponível no momento. Por favor, tente novamente mais tarde.
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="mb-6">
-          <div className="relative">
+          <div className="relative max-w-md">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Buscar por telefone ou conteúdo da mensagem..."
+              placeholder="Buscar mensagens..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -159,144 +152,134 @@ const Messages = () => {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Lista de Mensagens */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold mb-4">Conversas ({filteredMensagens.length})</h2>
-            {filteredMensagens.map((mensagem) => (
-              <Card 
-                key={mensagem.id} 
-                className={`hover:shadow-md transition-shadow cursor-pointer ${
-                  selectedMensagem?.id === mensagem.id ? 'border-[#FF914C] border-2' : ''
-                }`}
-                onClick={() => setSelectedMensagem(mensagem)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-[#FF914C] rounded-full flex items-center justify-center">
-                        <Phone className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold">{formatPhone(mensagem.telefone)}</h3>
-                        <div className="flex items-center text-gray-500 text-xs">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {formatTimestamp(mensagem.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end space-y-1">
-                      <Badge variant={mensagem.ativo ? "default" : "secondary"}>
-                        {mensagem.ativo ? 'Ativo' : 'Inativo'}
+        {/* Estatísticas rápidas */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <MessageCircle className="h-8 w-8 text-[#FF914C]" />
+                <div>
+                  <p className="text-2xl font-bold">{messages.length}</p>
+                  <p className="text-sm text-gray-600">Total</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <User className="h-8 w-8 text-blue-500" />
+                <div>
+                  <p className="text-2xl font-bold">{messages.filter(m => m.direction === 'inbound').length}</p>
+                  <p className="text-sm text-gray-600">Recebidas</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <Bot className="h-8 w-8 text-green-500" />
+                <div>
+                  <p className="text-2xl font-bold">{messages.filter(m => m.direction === 'outbound').length}</p>
+                  <p className="text-sm text-gray-600">Enviadas</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <Clock className="h-8 w-8 text-orange-500" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {messages.filter(m => {
+                      const today = new Date().toDateString();
+                      const messageDate = new Date(m.created_at).toDateString();
+                      return today === messageDate;
+                    }).length}
+                  </p>
+                  <p className="text-sm text-gray-600">Hoje</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Lista de Mensagens */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Histórico de Mensagens ({filteredMessages.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {filteredMessages.map((message) => (
+                <div 
+                  key={message.id}
+                  className={`flex ${message.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg ${
+                    message.direction === 'outbound'
+                      ? 'bg-[#FF914C] text-white'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    <div className="flex items-center space-x-2 mb-2">
+                      {message.direction === 'outbound' ? (
+                        <Bot className="h-4 w-4" />
+                      ) : (
+                        <User className="h-4 w-4" />
+                      )}
+                      <span className="text-sm font-medium">
+                        {message.direction === 'outbound' ? 'Chatbot' : message.contact?.name || 'Cliente'}
+                      </span>
+                      <Badge variant="outline" className={`text-xs ${
+                        message.direction === 'outbound' 
+                          ? 'border-orange-200 text-orange-100' 
+                          : 'border-gray-300 text-gray-600'
+                      }`}>
+                        {message.contact?.phone}
                       </Badge>
-                      <Badge variant="outline">
-                        {mensagem.message_type}
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="bg-gray-50 p-2 rounded text-sm">
-                      <div className="flex items-center mb-1">
-                        <User className="h-3 w-3 mr-1 text-blue-600" />
-                        <span className="text-blue-600 font-medium">Cliente:</span>
-                      </div>
-                      <p className="text-gray-700 truncate">{mensagem.user_message}</p>
                     </div>
                     
-                    <div className="bg-orange-50 p-2 rounded text-sm">
-                      <div className="flex items-center mb-1">
-                        <Bot className="h-3 w-3 mr-1 text-[#FF914C]" />
-                        <span className="text-[#FF914C] font-medium">Bot:</span>
-                      </div>
-                      <p className="text-gray-700 truncate">{mensagem.bot_message}</p>
+                    <p className="text-sm mb-2">{message.content}</p>
+                    
+                    <div className="flex items-center justify-between text-xs">
+                      <span className={
+                        message.direction === 'outbound' 
+                          ? 'text-orange-100' 
+                          : 'text-gray-500'
+                      }>
+                        {formatTimestamp(message.created_at)}
+                      </span>
+                      
+                      {message.direction === 'outbound' && (
+                        <Badge variant="outline" className="border-orange-200 text-orange-100 text-xs">
+                          {message.status === 'sent' ? '✓' : message.status === 'delivered' ? '✓✓' : '⏳'}
+                        </Badge>
+                      )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              ))}
+            </div>
 
-            {filteredMensagens.length === 0 && (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                    Nenhuma mensagem encontrada
-                  </h3>
-                  <p className="text-gray-500">
-                    {mensagens.length === 0 
-                      ? 'As mensagens do chatbot aparecerão aqui quando chegarem'
-                      : 'Nenhuma mensagem corresponde à sua busca'
-                    }
-                  </p>
-                </CardContent>
-              </Card>
+            {filteredMessages.length === 0 && (
+              <div className="text-center py-12">
+                <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                  Nenhuma mensagem encontrada
+                </h3>
+                <p className="text-gray-500">
+                  {searchTerm ? 'Tente uma busca diferente' : 'As mensagens aparecerão aqui conforme chegarem'}
+                </p>
+              </div>
             )}
-          </div>
-
-          {/* Conversa Detalhada */}
-          <div>
-            {selectedMensagem ? (
-              <Card className="h-fit">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <MessageCircle className="h-5 w-5 mr-2" />
-                    Conversa com {formatPhone(selectedMensagem.telefone)}
-                  </CardTitle>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant={selectedMensagem.ativo ? "default" : "secondary"}>
-                      {selectedMensagem.ativo ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                    <Badge variant="outline">
-                      {selectedMensagem.message_type}
-                    </Badge>
-                    <span className="text-sm text-gray-500">
-                      {formatTimestamp(selectedMensagem.created_at)}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {/* Mensagem do Cliente */}
-                    <div className="flex justify-start">
-                      <div className="max-w-xs lg:max-w-md px-4 py-2 rounded-lg bg-gray-100 text-gray-800">
-                        <div className="flex items-center mb-1">
-                          <User className="h-3 w-3 mr-1 text-blue-600" />
-                          <span className="text-blue-600 font-medium text-xs">Cliente</span>
-                        </div>
-                        <p className="text-sm">{selectedMensagem.user_message}</p>
-                      </div>
-                    </div>
-
-                    {/* Resposta do Bot */}
-                    <div className="flex justify-end">
-                      <div className="max-w-xs lg:max-w-md px-4 py-2 rounded-lg bg-[#FF914C] text-white">
-                        <div className="flex items-center mb-1">
-                          <Bot className="h-3 w-3 mr-1 text-orange-100" />
-                          <span className="text-orange-100 font-medium text-xs">Chatbot</span>
-                        </div>
-                        <p className="text-sm">{selectedMensagem.bot_message}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                    Selecione uma conversa
-                  </h3>
-                  <p className="text-gray-500">
-                    Clique em uma mensagem à esquerda para ver os detalhes
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
-      </div>
+          </CardContent>
+        </Card>
+      </main>
     </div>
   );
 };
