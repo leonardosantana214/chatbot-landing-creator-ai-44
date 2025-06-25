@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, CheckCircle, Smartphone, QrCode, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Smartphone, QrCode, Loader2, AlertCircle, Copy, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useCompleteRegistration } from '@/hooks/useCompleteRegistration';
 
@@ -17,6 +17,8 @@ const WhatsAppIntegration = () => {
   const [connectionSuccess, setConnectionSuccess] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [userCredentials, setUserCredentials] = useState<{email: string, password: string} | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const userData = location.state?.userData;
   const chatbotConfig = location.state?.chatbotConfig;
@@ -43,6 +45,13 @@ const WhatsAppIntegration = () => {
       
       // Gerar senha automática mais robusta
       const password = `Tech${Date.now()}!${Math.random().toString(36).slice(-4)}`;
+      
+      // Salvar credenciais para mostrar ao usuário
+      const credentials = {
+        email: userData.email,
+        password: password
+      };
+      setUserCredentials(credentials);
       
       const userRegistrationData = {
         name: userData.name,
@@ -201,6 +210,14 @@ const WhatsAppIntegration = () => {
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "📋 Copiado!",
+      description: "Texto copiado para a área de transferência.",
+    });
+  };
+
   const handleRetry = () => {
     setErrorMessage(null);
     setStep(1);
@@ -318,6 +335,63 @@ const WhatsAppIntegration = () => {
             <h3 className="text-2xl font-bold text-green-800 mb-4">
               Tudo Pronto! 🎉
             </h3>
+            
+            {/* Mostrar credenciais de acesso */}
+            {userCredentials && (
+              <div className="bg-blue-50 p-6 rounded-lg mb-6 border-2 border-blue-200">
+                <h4 className="font-bold text-blue-800 mb-4 text-lg">
+                  🔐 SUAS CREDENCIAIS DE ACESSO
+                </h4>
+                <div className="space-y-4">
+                  <div className="bg-white p-4 rounded border">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email:</label>
+                    <div className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <span className="font-mono text-sm">{userCredentials.email}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(userCredentials.email)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white p-4 rounded border">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Senha:</label>
+                    <div className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <span className="font-mono text-sm">
+                        {showPassword ? userCredentials.password : '••••••••••••'}
+                      </span>
+                      <div className="flex space-x-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(userCredentials.password)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-yellow-100 rounded border border-yellow-300">
+                  <p className="text-yellow-800 text-sm font-semibold">
+                    ⚠️ IMPORTANTE: Anote essas credenciais em um local seguro! 
+                    Você precisará delas para fazer login no futuro.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="bg-green-50 p-6 rounded-lg mb-6">
               <h4 className="font-semibold text-green-800 mb-3">Seu chatbot está configurado:</h4>
               <div className="space-y-2 text-sm text-green-700">
