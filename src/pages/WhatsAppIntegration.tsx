@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -89,8 +88,8 @@ const WhatsAppIntegration = () => {
       
       console.log('📱 Buscando QR Code real da Evolution API...');
       
-      // Primeiro verificar status da instância
-      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetch/${instanceName}`, {
+      // Primeiro verificar status da instância usando o endpoint correto
+      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -103,14 +102,17 @@ const WhatsAppIntegration = () => {
         console.log('📊 Status da instância:', statusData);
         
         // Verificar se já está conectado
-        if (statusData.instance?.connectionStatus === 'open') {
-          setConnectionSuccess(true);
-          setStep(4);
-          toast({
-            title: "🎉 WhatsApp já conectado!",
-            description: "Sua instância já está ativa!",
-          });
-          return;
+        if (Array.isArray(statusData) && statusData.length > 0) {
+          const instance = statusData[0];
+          if (instance.connectionStatus === 'open') {
+            setConnectionSuccess(true);
+            setStep(4);
+            toast({
+              title: "🎉 WhatsApp já conectado!",
+              description: "Sua instância já está ativa!",
+            });
+            return;
+          }
         }
       }
       
@@ -156,7 +158,8 @@ const WhatsAppIntegration = () => {
       
       console.log('🔍 Verificando conexão do WhatsApp...');
       
-      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetch/${instanceName}`, {
+      // Usar o endpoint correto para verificar status
+      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -167,15 +170,18 @@ const WhatsAppIntegration = () => {
       if (statusResponse.ok) {
         const statusData = await statusResponse.json();
         
-        if (statusData.instance?.connectionStatus === 'open') {
-          setConnectionSuccess(true);
-          setStep(4);
-          
-          toast({
-            title: "🎉 WhatsApp conectado!",
-            description: "Conexão confirmada com sucesso!",
-          });
-          return;
+        if (Array.isArray(statusData) && statusData.length > 0) {
+          const instance = statusData[0];
+          if (instance.connectionStatus === 'open') {
+            setConnectionSuccess(true);
+            setStep(4);
+            
+            toast({
+              title: "🎉 WhatsApp conectado!",
+              description: "Conexão confirmada com sucesso!",
+            });
+            return;
+          }
         }
       }
       

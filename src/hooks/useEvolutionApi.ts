@@ -28,6 +28,7 @@ export const useEvolutionApi = (): UseEvolutionApiReturn => {
       setIsLoading(true);
       console.log('🔍 Verificando status da instância:', instanceName);
       
+      // Usar o endpoint correto com parâmetro de query
       const response = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
         method: 'GET',
         headers: {
