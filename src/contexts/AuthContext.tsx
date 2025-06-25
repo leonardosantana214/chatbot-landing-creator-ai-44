@@ -28,48 +28,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
+    console.log('🔧 Configurando AuthContext...');
+    
+    // Configurar listener de mudanças de auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('🔄 Auth state change:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
       }
     );
 
-    // Check for existing session
+    // Verificar sessão existente
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('📋 Sessão existente:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('🧹 Limpando AuthContext...');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, userData: any) => {
-    const redirectUrl = `${window.location.origin}/`;
+    console.log('📝 Iniciando signup para:', email);
     
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: redirectUrl,
-        data: userData
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+        data: {
+          name: userData.name,
+          company: userData.company,
+          area: userData.area,
+          whatsapp: userData.whatsapp
+        }
       }
     });
+    
+    if (error) {
+      console.error('❌ Erro no signup:', error);
+    } else {
+      console.log('✅ Signup realizado com sucesso');
+    }
+    
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log('🔐 Iniciando login para:', email);
+    
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
+    
+    if (error) {
+      console.error('❌ Erro no login:', error);
+    } else {
+      console.log('✅ Login realizado com sucesso');
+    }
+    
     return { error };
   };
 
   const signOut = async () => {
+    console.log('👋 Fazendo logout...');
     await supabase.auth.signOut();
   };
 
