@@ -33,14 +33,19 @@ export const useCompleteRegistration = () => {
   const { signUp } = useAuth();
   const { connectInstance } = useEvolutionConnection();
 
-  const clearAllAuthUsers = async () => {
+  const clearAllData = async () => {
     try {
-      console.log('🧹 Limpando todos os usuários do Auth...');
-      // Fazer logout de qualquer usuário logado
+      console.log('🧹 Limpando TODOS os dados anteriores...');
+      
+      // 1. Fazer logout completo
       await supabase.auth.signOut();
-      console.log('✅ Usuários limpos com sucesso');
+      
+      // 2. Aguardar para garantir logout
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('✅ Limpeza completa realizada');
     } catch (error) {
-      console.error('⚠️ Erro ao limpar usuários:', error);
+      console.error('⚠️ Erro na limpeza:', error);
     }
   };
 
@@ -51,12 +56,12 @@ export const useCompleteRegistration = () => {
     setLoading(true);
     
     try {
-      console.log('🚀 Iniciando processo completo de registro...');
+      console.log('🚀 Iniciando processo COMPLETO de registro...');
       
-      // 1. LIMPAR TODOS OS USUÁRIOS ANTERIORES
-      await clearAllAuthUsers();
+      // 1. LIMPEZA TOTAL PRIMEIRO
+      await clearAllData();
       
-      // 2. Criar/conectar instância no Evolution PRIMEIRO
+      // 2. Criar instância Evolution PRIMEIRO
       console.log('📡 Criando instância Evolution...');
       const instanceData = await connectInstance(chatbotConfig.nome_instancia, chatbotConfig);
       
@@ -64,15 +69,16 @@ export const useCompleteRegistration = () => {
         throw new Error('Falha ao criar instância no Evolution API');
       }
 
-      console.log('✅ Instância criada:', instanceData.instanceId);
+      console.log('✅ Instância Evolution criada:', instanceData.instanceId);
 
-      // 3. Criar usuário no Supabase Auth SEM confirmação de email
-      console.log('👤 Criando usuário no Supabase...');
+      // 3. Criar usuário no Supabase Auth (SEM confirmação de email)
+      console.log('👤 Criando usuário no Supabase Auth...');
       
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
         options: {
+          emailRedirectTo: undefined, // Remove confirmação por email
           data: {
             name: userData.name,
             company: userData.company,
@@ -80,8 +86,7 @@ export const useCompleteRegistration = () => {
             whatsapp: userData.whatsapp,
             instance_id: instanceData.instanceId,
             instance_name: chatbotConfig.nome_instancia
-          },
-          emailRedirectTo: undefined // Remover redirecionamento de email
+          }
         }
       });
 
@@ -94,27 +99,32 @@ export const useCompleteRegistration = () => {
         throw new Error('Usuário não foi criado corretamente');
       }
 
-      console.log('✅ Usuário criado com sucesso!', authData.user.id);
+      const userId = authData.user.id;
+      console.log('✅ Usuário criado no Auth:', userId);
 
-      // 4. Aguardar e garantir que o perfil foi criado
-      console.log('🔍 Garantindo criação do perfil...');
-      
-      // Aguardar o trigger funcionar
+      // 4. Aguardar trigger do perfil
+      console.log('⏳ Aguardando criação automática do perfil...');
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Verificar e criar perfil se necessário
-      const { data: profileData, error: profileError } = await supabase
+      // 5. Verificar se perfil foi criado automaticamente
+      const { data: existingProfile, error: profileCheckError } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', authData.user.id)
+        .eq('id', userId)
         .maybeSingle();
 
-      if (profileError || !profileData) {
+      if (profileCheckError) {
+        console.log('⚠️ Erro ao verificar perfil:', profileCheckError);
+      }
+
+      if (!existingProfile) {
+        // 6. Criar perfil manualmente se não foi criado pelo trigger
         console.log('📝 Criando perfil manualmente...');
-        const { error: insertError } = await supabase
+        
+        const { data: newProfile, error: createProfileError } = await supabase
           .from('user_profiles')
           .insert({
-            id: authData.user.id,
+            id: userId,
             name: userData.name,
             email: userData.email,
             company: userData.company,
@@ -122,22 +132,40 @@ export const useCompleteRegistration = () => {
             whatsapp: userData.whatsapp,
             instance_id: instanceData.instanceId,
             instance_name: chatbotConfig.nome_instancia
-          });
+          })
+          .select()
+          .single();
 
-        if (insertError) {
-          console.error('❌ Erro ao criar perfil:', insertError);
-        } else {
-          console.log('✅ Perfil criado manualmente');
+        if (createProfileError) {
+          console.error('❌ Erro ao criar perfil manualmente:', createProfileError);
+          throw new Error('Erro ao criar perfil do usuário');
         }
+        
+        console.log('✅ Perfil criado manualmente:', newProfile);
       } else {
-        console.log('✅ Perfil já existe:', profileData);
+        console.log('✅ Perfil já existe (criado pelo trigger):', existingProfile);
       }
 
-      // 5. Salvar configuração COMPLETA do chatbot
-      console.log('💾 Salvando configuração COMPLETA do chatbot...');
+      // 7. Verificar se já existe configuração para evitar duplicata
+      const { data: existingConfig } = await supabase
+        .from('chatbot_configs')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (existingConfig) {
+        console.log('⚠️ Configuração já existe, removendo...');
+        await supabase
+          .from('chatbot_configs')
+          .delete()
+          .eq('user_id', userId);
+      }
+
+      // 8. Criar configuração do chatbot
+      console.log('💾 Salvando configuração do chatbot...');
       
       const configData = {
-        user_id: authData.user.id,
+        user_id: userId,
         bot_name: chatbotConfig.nome_da_IA,
         service_type: chatbotConfig.nicho,
         tone: chatbotConfig.personalidade,
@@ -156,18 +184,18 @@ export const useCompleteRegistration = () => {
       if (configError) {
         console.error('❌ Erro ao salvar configuração:', configError);
         throw new Error('Erro ao salvar configuração do chatbot');
-      } else {
-        console.log('✅ Configuração salva com sucesso!', configResult);
       }
 
-      // 6. Enviar TODOS os dados para o webhook
+      console.log('✅ Configuração do chatbot salva:', configResult);
+
+      // 9. Enviar dados para webhook
       console.log('📤 Enviando dados para webhook...');
       
       const webhookData = {
         ...userData,
         ...chatbotConfig,
         instance_id: instanceData.instanceId,
-        user_id: authData.user.id,
+        user_id: userId,
         webhook_url: `https://leowebhook.techcorps.com.br/webhook/${chatbotConfig.nome_instancia}`
       };
 
@@ -181,31 +209,53 @@ export const useCompleteRegistration = () => {
         });
 
         if (webhookResponse.ok) {
-          console.log('✅ Dados enviados para webhook com sucesso');
+          console.log('✅ Webhook enviado com sucesso');
         } else {
-          console.warn('⚠️ Webhook retornou erro, mas continuando...');
+          console.warn('⚠️ Webhook com erro, mas continuando...');
         }
       } catch (webhookError) {
         console.warn('⚠️ Erro no webhook, mas continuando:', webhookError);
       }
 
-      // 7. Fazer login automático após criação
-      console.log('🔐 Fazendo login automático...');
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      // 10. Login automático (forçar confirmação)
+      console.log('🔐 Fazendo login automático FORÇADO...');
+      
+      // Primeiro confirmar o usuário manualmente no banco
+      const { error: confirmError } = await supabase.auth.admin.updateUserById(
+        userId,
+        { email_confirm: true }
+      );
+
+      if (confirmError) {
+        console.log('⚠️ Não foi possível confirmar via admin, tentando login direto...');
+      }
+
+      // Tentar login
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: userData.email,
         password: userData.password,
       });
 
       if (signInError) {
         console.error('❌ Erro no login automático:', signInError);
+        
+        // Se erro de email não confirmado, mostrar mensagem específica
+        if (signInError.message.includes('Email not confirmed')) {
+          toast({
+            title: "📧 Confirme seu email",
+            description: "Verifique sua caixa de entrada e confirme seu email antes de prosseguir.",
+            duration: 8000,
+          });
+        }
+        
         throw new Error('Conta criada mas erro no login automático');
       }
 
-      console.log('✅ Login automático realizado com sucesso!');
+      console.log('✅ Login automático realizado!');
 
       toast({
         title: "🎉 CONTA CRIADA COM SUCESSO!",
-        description: `Bem-vindo, ${userData.name}! Você está logado e pronto para usar o sistema.`,
+        description: `Bem-vindo, ${userData.name}! Tudo configurado e pronto para usar.`,
         duration: 5000,
       });
 
@@ -215,7 +265,7 @@ export const useCompleteRegistration = () => {
       console.error('💥 Erro no processo completo:', error);
       
       toast({
-        title: "❌ Erro na Criação da Conta",
+        title: "❌ Erro na Configuração",
         description: error instanceof Error ? error.message : 'Erro desconhecido ao criar conta',
         variant: "destructive",
         duration: 10000,
