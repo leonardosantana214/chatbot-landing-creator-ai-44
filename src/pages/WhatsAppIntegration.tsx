@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { ArrowLeft, CheckCircle, Smartphone, QrCode, Loader2, AlertCircle, Copy, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useCompleteRegistration } from '@/hooks/useCompleteRegistration';
@@ -12,7 +13,9 @@ const WhatsAppIntegration = () => {
   const { toast } = useToast();
   const { registerUserComplete, loading } = useCompleteRegistration();
   
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0); // Começar no step 0 para escolha de senha
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
   const [connectionSuccess, setConnectionSuccess] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
@@ -29,29 +32,44 @@ const WhatsAppIntegration = () => {
       navigate('/chatbot-setup');
       return;
     }
-
-    // Iniciar processo automaticamente
-    handleCompleteSetup();
   }, [userData, chatbotConfig, instanceName]);
 
+  const handlePasswordSubmit = () => {
+    if (!password || password.length < 6) {
+      toast({
+        title: "❌ Senha inválida",
+        description: "A senha deve ter pelo menos 6 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "❌ Senhas não coincidem",
+        description: "As senhas digitadas não são iguais.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Salvar credenciais e continuar
+    setUserCredentials({
+      email: userData.email,
+      password: password
+    });
+
+    handleCompleteSetup();
+  };
+
   const handleCompleteSetup = async () => {
-    if (!userData || !chatbotConfig) return;
+    if (!userData || !chatbotConfig || !password) return;
 
     setStep(1); // Iniciando criação
     setErrorMessage(null);
     
     try {
       console.log('🚀 Iniciando configuração completa...');
-      
-      // Gerar senha automática mais robusta
-      const password = `Tech${Date.now()}!${Math.random().toString(36).slice(-4)}`;
-      
-      // Salvar credenciais para mostrar ao usuário
-      const credentials = {
-        email: userData.email,
-        password: password
-      };
-      setUserCredentials(credentials);
       
       const userRegistrationData = {
         name: userData.name,
@@ -81,12 +99,12 @@ const WhatsAppIntegration = () => {
         
       } else {
         setErrorMessage("Falha ao criar conta. Tente novamente.");
-        setStep(1);
+        setStep(0);
       }
     } catch (error) {
       console.error('💥 Erro no setup completo:', error);
       setErrorMessage(error instanceof Error ? error.message : 'Erro desconhecido');
-      setStep(1);
+      setStep(0);
     }
   };
 
@@ -98,7 +116,7 @@ const WhatsAppIntegration = () => {
       console.log('📱 Buscando QR Code real da Evolution API...');
       
       // Primeiro verificar status da instância usando o endpoint correto
-      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
+      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -108,20 +126,19 @@ const WhatsAppIntegration = () => {
 
       if (statusResponse.ok) {
         const statusData = await statusResponse.json();
-        console.log('📊 Status da instância:', statusData);
+        console.log('📊 Status das instâncias:', statusData);
         
-        // Verificar se já está conectado
-        if (Array.isArray(statusData) && statusData.length > 0) {
-          const instance = statusData[0];
-          if (instance.connectionStatus === 'open') {
-            setConnectionSuccess(true);
-            setStep(4);
-            toast({
-              title: "🎉 WhatsApp já conectado!",
-              description: "Sua instância já está ativa!",
-            });
-            return;
-          }
+        // Procurar nossa instância na lista
+        const ourInstance = statusData.find((inst: any) => inst.instanceName === instanceName);
+        
+        if (ourInstance && ourInstance.connectionStatus === 'open') {
+          setConnectionSuccess(true);
+          setStep(4);
+          toast({
+            title: "🎉 WhatsApp já conectado!",
+            description: "Sua instância já está ativa!",
+          });
+          return;
         }
       }
       
@@ -167,8 +184,7 @@ const WhatsAppIntegration = () => {
       
       console.log('🔍 Verificando conexão do WhatsApp...');
       
-      // Usar o endpoint correto para verificar status
-      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
+      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -178,19 +194,17 @@ const WhatsAppIntegration = () => {
 
       if (statusResponse.ok) {
         const statusData = await statusResponse.json();
+        const ourInstance = statusData.find((inst: any) => inst.instanceName === instanceName);
         
-        if (Array.isArray(statusData) && statusData.length > 0) {
-          const instance = statusData[0];
-          if (instance.connectionStatus === 'open') {
-            setConnectionSuccess(true);
-            setStep(4);
-            
-            toast({
-              title: "🎉 WhatsApp conectado!",
-              description: "Conexão confirmada com sucesso!",
-            });
-            return;
-          }
+        if (ourInstance && ourInstance.connectionStatus === 'open') {
+          setConnectionSuccess(true);
+          setStep(4);
+          
+          toast({
+            title: "🎉 WhatsApp conectado!",
+            description: "Conexão confirmada com sucesso!",
+          });
+          return;
         }
       }
       
@@ -220,8 +234,7 @@ const WhatsAppIntegration = () => {
 
   const handleRetry = () => {
     setErrorMessage(null);
-    setStep(1);
-    handleCompleteSetup();
+    setStep(0);
   };
 
   const handleFinish = () => {
@@ -246,6 +259,74 @@ const WhatsAppIntegration = () => {
     }
 
     switch (step) {
+      case 0:
+        return (
+          <div className="space-y-4">
+            <div className="text-center mb-6">
+              <h3 className="text-xl font-semibold mb-2">Escolha sua senha</h3>
+              <p className="text-gray-600">
+                Defina uma senha segura para acessar sua conta
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email (confirmado)
+                </label>
+                <Input
+                  type="email"
+                  value={userData?.email || ''}
+                  disabled
+                  className="bg-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nova senha *
+                </label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Digite sua senha (mín. 6 caracteres)"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirmar senha *
+                </label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Digite a senha novamente"
+                />
+              </div>
+
+              <Button 
+                onClick={handlePasswordSubmit}
+                className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white"
+                disabled={!password || !confirmPassword}
+              >
+                Continuar Configuração
+              </Button>
+            </div>
+          </div>
+        );
+      
       case 1:
         return (
           <div className="text-center">
@@ -336,7 +417,6 @@ const WhatsAppIntegration = () => {
               Tudo Pronto! 🎉
             </h3>
             
-            {/* Mostrar credenciais de acesso */}
             {userCredentials && (
               <div className="bg-blue-50 p-6 rounded-lg mb-6 border-2 border-blue-200">
                 <h4 className="font-bold text-blue-800 mb-4 text-lg">
@@ -386,7 +466,6 @@ const WhatsAppIntegration = () => {
                 <div className="mt-4 p-3 bg-yellow-100 rounded border border-yellow-300">
                   <p className="text-yellow-800 text-sm font-semibold">
                     ⚠️ IMPORTANTE: Anote essas credenciais em um local seguro! 
-                    Você precisará delas para fazer login no futuro.
                   </p>
                 </div>
               </div>
@@ -401,9 +480,27 @@ const WhatsAppIntegration = () => {
                 <p><strong>Status:</strong> Ativo e funcionando</p>
               </div>
             </div>
-            <p className="text-gray-600 mb-6">
-              Seu chatbot já está atendendo clientes no WhatsApp!
+            
+            <p className="text-gray-600 mb-4">
+              Conta criada com sucesso! Você pode fazer login agora ou mais tarde.
             </p>
+            
+            <div className="space-y-2">
+              <Button 
+                onClick={handleFinish}
+                className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white"
+              >
+                Fazer Login Agora
+              </Button>
+              
+              <Button 
+                onClick={() => navigate('/')}
+                variant="outline"
+                className="w-full"
+              >
+                Voltar para Início
+              </Button>
+            </div>
           </div>
         );
       
@@ -447,7 +544,7 @@ const WhatsAppIntegration = () => {
               Finalizando Configuração
             </h2>
             <p className="text-gray-600">
-              Criando conta, salvando dados e conectando WhatsApp
+              {step === 0 ? "Escolha sua senha para continuar" : "Criando conta, salvando dados e conectando WhatsApp"}
             </p>
           </div>
 
@@ -460,21 +557,17 @@ const WhatsAppIntegration = () => {
             </CardHeader>
             <CardContent className="p-8">
               {renderStep()}
-              
-              {step === 4 && (
-                <Button 
-                  onClick={handleFinish}
-                  className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3 mt-6"
-                  size="lg"
-                >
-                  Ir para o Dashboard
-                </Button>
-              )}
             </CardContent>
           </Card>
 
           <div className="text-center mt-6">
             <div className="flex items-center justify-center space-x-4 text-sm text-gray-500">
+              <div className="flex items-center">
+                <div className={`h-4 w-4 rounded-full mr-1 ${
+                  step >= 0 ? 'bg-green-500' : 'bg-gray-300'
+                }`}></div>
+                <span>Senha</span>
+              </div>
               <div className="flex items-center">
                 <div className={`h-4 w-4 rounded-full mr-1 ${
                   step >= 1 ? 'bg-green-500' : 'bg-gray-300'

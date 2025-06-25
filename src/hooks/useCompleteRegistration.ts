@@ -30,19 +30,13 @@ interface ChatbotConfigData {
 export const useCompleteRegistration = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { signUp } = useAuth();
   const { connectInstance } = useEvolutionConnection();
 
   const clearAllData = async () => {
     try {
       console.log('🧹 Limpando TODOS os dados anteriores...');
-      
-      // 1. Fazer logout completo
       await supabase.auth.signOut();
-      
-      // 2. Aguardar para garantir logout
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
       console.log('✅ Limpeza completa realizada');
     } catch (error) {
       console.error('⚠️ Erro na limpeza:', error);
@@ -58,10 +52,9 @@ export const useCompleteRegistration = () => {
     try {
       console.log('🚀 Iniciando processo COMPLETO de registro...');
       
-      // 1. LIMPEZA TOTAL PRIMEIRO
       await clearAllData();
       
-      // 2. Criar instância Evolution PRIMEIRO
+      // 1. Criar instância Evolution PRIMEIRO
       console.log('📡 Criando instância Evolution...');
       const instanceData = await connectInstance(chatbotConfig.nome_instancia, chatbotConfig);
       
@@ -71,7 +64,7 @@ export const useCompleteRegistration = () => {
 
       console.log('✅ Instância Evolution criada:', instanceData.instanceId);
 
-      // 3. Criar usuário no Supabase Auth SEM confirmação de email
+      // 2. Criar usuário no Supabase Auth SEM confirmação de email
       console.log('👤 Criando usuário no Supabase Auth...');
       
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -85,7 +78,8 @@ export const useCompleteRegistration = () => {
             area: userData.area,
             whatsapp: userData.whatsapp,
             instance_id: instanceData.instanceId,
-            instance_name: chatbotConfig.nome_instancia
+            instance_name: chatbotConfig.nome_instancia,
+            email_confirm: true // Forçar confirmação automática
           }
         }
       });
@@ -102,25 +96,10 @@ export const useCompleteRegistration = () => {
       const userId = authData.user.id;
       console.log('✅ Usuário criado no Auth:', userId);
 
-      // 4. Aguardar trigger do perfil e confirmar usuário automaticamente
-      console.log('⏳ Confirmando usuário automaticamente...');
-      
-      // Usar a API admin para confirmar o usuário (funciona com a chave service_role)
-      const { error: confirmError } = await supabase.auth.admin.updateUserById(
-        userId,
-        { email_confirm: true }
-      );
-
-      if (confirmError) {
-        console.log('⚠️ Não foi possível confirmar via admin API, continuando...');
-      } else {
-        console.log('✅ Usuário confirmado automaticamente!');
-      }
-
-      // 5. Aguardar criação automática do perfil
+      // 3. Aguardar criação automática do perfil
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // 6. Verificar se perfil foi criado automaticamente pelo trigger
+      // 4. Verificar se perfil foi criado automaticamente pelo trigger
       const { data: existingProfile, error: profileCheckError } = await supabase
         .from('user_profiles')
         .select('*')
@@ -132,7 +111,6 @@ export const useCompleteRegistration = () => {
       }
 
       if (!existingProfile) {
-        // 7. Criar perfil manualmente se não foi criado pelo trigger
         console.log('📝 Criando perfil manualmente...');
         
         const { data: newProfile, error: createProfileError } = await supabase
@@ -152,7 +130,6 @@ export const useCompleteRegistration = () => {
 
         if (createProfileError) {
           console.error('❌ Erro ao criar perfil manualmente:', createProfileError);
-          // Não falhar aqui, continuar o processo
           console.log('⚠️ Continuando sem perfil por enquanto...');
         } else {
           console.log('✅ Perfil criado manualmente:', newProfile);
@@ -161,7 +138,7 @@ export const useCompleteRegistration = () => {
         console.log('✅ Perfil já existe (criado pelo trigger):', existingProfile);
       }
 
-      // 8. Verificar se já existe configuração para evitar duplicata
+      // 5. Verificar se já existe configuração para evitar duplicata
       const { data: existingConfig } = await supabase
         .from('chatbot_configs')
         .select('*')
@@ -176,7 +153,7 @@ export const useCompleteRegistration = () => {
           .eq('user_id', userId);
       }
 
-      // 9. Criar configuração do chatbot
+      // 6. Criar configuração do chatbot
       console.log('💾 Salvando configuração do chatbot...');
       
       const configData = {
@@ -203,7 +180,7 @@ export const useCompleteRegistration = () => {
 
       console.log('✅ Configuração do chatbot salva:', configResult);
 
-      // 10. Enviar dados para webhook
+      // 7. Enviar dados para webhook
       console.log('📤 Enviando dados para webhook...');
       
       const webhookData = {
@@ -232,33 +209,14 @@ export const useCompleteRegistration = () => {
         console.warn('⚠️ Erro no webhook, mas continuando:', webhookError);
       }
 
-      // 11. Login automático
-      console.log('🔐 Fazendo login automático...');
+      // 8. Sucesso - NÃO fazer login automático
+      console.log('🎉 CONTA CRIADA COM SUCESSO - Login manual disponível');
       
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: userData.email,
-        password: userData.password,
+      toast({
+        title: "🎉 CONTA CRIADA COM SUCESSO!",
+        description: `Bem-vindo, ${userData.name}! Use suas credenciais para fazer login quando quiser.`,
+        duration: 8000,
       });
-
-      if (signInError) {
-        console.error('❌ Erro no login automático:', signInError);
-        
-        toast({
-          title: "⚠️ Conta criada com sucesso!",
-          description: "Faça login manualmente para acessar sua conta.",
-          duration: 8000,
-        });
-        
-        // Não falhar aqui, a conta foi criada
-      } else {
-        console.log('✅ Login automático realizado!');
-        
-        toast({
-          title: "🎉 CONTA CRIADA COM SUCESSO!",
-          description: `Bem-vindo, ${userData.name}! Tudo configurado e pronto para usar.`,
-          duration: 5000,
-        });
-      }
 
       return { success: true, instanceData };
 
