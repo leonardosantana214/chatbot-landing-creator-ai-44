@@ -10,7 +10,7 @@ const LandingPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Redirecionar usuários autenticados para o dashboard
+  // Se usuário já está logado, vai para dashboard
   useEffect(() => {
     if (user) {
       navigate('/dashboard');
@@ -18,6 +18,7 @@ const LandingPage = () => {
   }, [user, navigate]);
 
   const handleStartNow = () => {
+    // Sempre vai para pagamento primeiro - só tem conta quem pagou!
     navigate('/payment');
   };
 
@@ -46,7 +47,7 @@ const LandingPage = () => {
                 onClick={handleLogin}
                 className="border-[#FF914C] text-[#FF914C] hover:bg-[#FF914C] hover:text-white"
               >
-                Já tenho conta
+                Já sou cliente
               </Button>
               <Button 
                 onClick={handleStartNow}
@@ -77,15 +78,7 @@ const LandingPage = () => {
               className="bg-[#FF914C] hover:bg-[#FF7A2B] text-white px-8 py-4 text-lg"
             >
               <Zap className="h-5 w-5 mr-2" />
-              Começar Gratuitamente
-            </Button>
-            <Button 
-              variant="outline" 
-              size="lg"
-              className="border-[#FF914C] text-[#FF914C] hover:bg-[#FF914C] hover:text-white px-8 py-4 text-lg"
-            >
-              <MessageCircle className="h-5 w-5 mr-2" />
-              Ver Demo
+              Começar Agora - R$ 75/mês
             </Button>
           </div>
 
@@ -158,104 +151,6 @@ const LandingPage = () => {
               </p>
             </CardContent>
           </Card>
-
-          <Card className="border-[#FF914C] border-l-4 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <Users className="h-12 w-12 text-[#FF914C] mb-4" />
-              <CardTitle>Gestão de Clientes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                CRM integrado para gerenciar todos os seus contatos 
-                e histórico de conversas em um só lugar.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-[#FF914C] border-l-4 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <Shield className="h-12 w-12 text-[#FF914C] mb-4" />
-              <CardTitle>Segurança Total</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                Seus dados protegidos com criptografia de ponta. 
-                Conformidade com LGPD garantida.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-[#FF914C] border-l-4 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <Zap className="h-12 w-12 text-[#FF914C] mb-4" />
-              <CardTitle>Configuração Rápida</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">
-                Configure seu chatbot em menos de 10 minutos. 
-                Suporte completo durante a implementação.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h3 className="text-3xl font-bold text-gray-900 mb-4">
-            Plano Simples e Transparente
-          </h3>
-          <p className="text-xl text-gray-600">
-            Tudo que você precisa para automatizar seu atendimento
-          </p>
-        </div>
-
-        <div className="max-w-md mx-auto">
-          <Card className="border-[#FF914C] border-2 shadow-xl">
-            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <span className="bg-[#FF914C] text-white px-4 py-1 rounded-full text-sm font-medium">
-                🔥 Mais Popular
-              </span>
-            </div>
-            
-            <CardHeader className="text-center pb-8 pt-8">
-              <CardTitle className="text-2xl font-bold">Plano Completo</CardTitle>
-              <div className="text-4xl font-bold text-[#FF914C] mt-4">
-                R$ 75
-                <span className="text-base font-normal text-gray-600">/mês</span>
-              </div>
-              <p className="text-gray-600 mt-2">Sem taxa de setup • Cancele quando quiser</p>
-            </CardHeader>
-
-            <CardContent>
-              <ul className="space-y-3 mb-8">
-                {[
-                  'Chatbot com IA avançada',
-                  'Integração WhatsApp Business',
-                  'Mensagens ilimitadas',
-                  'Dashboard completo',
-                  'Gestão de clientes',
-                  'Relatórios detalhados',
-                  'Suporte prioritário',
-                  'Configuração personalizada'
-                ].map((feature, index) => (
-                  <li key={index} className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <Button 
-                onClick={handleStartNow}
-                className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
-                size="lg"
-              >
-                Começar Agora
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </section>
 
@@ -274,11 +169,11 @@ const LandingPage = () => {
             size="lg"
             className="bg-white text-[#FF914C] hover:bg-gray-100 px-8 py-4 text-lg font-semibold"
           >
-            Começar Gratuitamente
+            Começar Agora - R$ 75/mês
           </Button>
           
           <p className="text-orange-200 text-sm mt-4">
-            ✅ 7 dias grátis • ✅ Sem compromisso • ✅ Suporte incluído
+            ✅ Setup completo • ✅ Suporte incluído • ✅ Cancele quando quiser
           </p>
         </div>
       </section>
@@ -297,11 +192,6 @@ const LandingPage = () => {
           <p className="text-gray-400 mb-4">
             Automatize seu WhatsApp com inteligência artificial
           </p>
-          <div className="flex justify-center space-x-6">
-            <a href="#" className="text-gray-400 hover:text-white">Política de Privacidade</a>
-            <a href="#" className="text-gray-400 hover:text-white">Termos de Uso</a>
-            <a href="#" className="text-gray-400 hover:text-white">Suporte</a>
-          </div>
           <p className="text-gray-500 mt-6">
             © 2024 Techcorps. Todos os direitos reservados.
           </p>

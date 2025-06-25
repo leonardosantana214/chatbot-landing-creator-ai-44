@@ -6,21 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, CreditCard, User, Mail, Phone, Building, Lock, Pix, FileText, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CreditCard, User, Mail, Phone, Building, Pix, FileText, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Payment = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [step, setStep] = useState(1); // 1: dados, 2: pagamento, 3: confirmação
+  const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '',
     company: '',
     area: '',
     whatsapp: ''
@@ -47,7 +46,6 @@ const Payment = () => {
 
   const handleNextStep = () => {
     if (step === 1) {
-      // Validar dados
       if (!formData.name || !formData.email || !formData.company || !formData.area || !formData.whatsapp) {
         toast({
           title: "Dados incompletos",
@@ -79,75 +77,21 @@ const Payment = () => {
       
       toast({
         title: "Pagamento aprovado!",
-        description: "Sua conta será criada em instantes.",
+        description: "Agora vamos configurar seu chatbot.",
       });
 
-      // Redirecionar para criação de conta após 3 segundos
+      // Após pagamento aprovado, vai direto para configuração do chatbot
       setTimeout(() => {
-        navigate('/account-creation', {
+        navigate('/chatbot-setup', {
           state: {
             userData: formData,
             paymentConfirmed: true,
             paymentMethod: paymentMethod
           }
         });
-      }, 3000);
+      }, 2000);
     }, 2000);
   };
-
-  const renderPaymentMethods = () => (
-    <div className="space-y-4">
-      <div 
-        className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
-          paymentMethod === 'pix' ? 'border-[#FF914C] bg-orange-50' : 'border-gray-200 hover:border-[#FF914C]'
-        }`}
-        onClick={() => setPaymentMethod('pix')}
-      >
-        <div className="flex items-center space-x-3">
-          <Pix className="h-8 w-8 text-[#FF914C]" />
-          <div>
-            <h4 className="font-semibold">PIX</h4>
-            <p className="text-sm text-gray-600">Aprovação instantânea</p>
-          </div>
-          <div className="ml-auto">
-            <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-              Recomendado
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div 
-        className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
-          paymentMethod === 'boleto' ? 'border-[#FF914C] bg-orange-50' : 'border-gray-200 hover:border-[#FF914C]'
-        }`}
-        onClick={() => setPaymentMethod('boleto')}
-      >
-        <div className="flex items-center space-x-3">
-          <FileText className="h-8 w-8 text-[#FF914C]" />
-          <div>
-            <h4 className="font-semibold">Boleto Bancário</h4>
-            <p className="text-sm text-gray-600">Vencimento em 3 dias úteis</p>
-          </div>
-        </div>
-      </div>
-
-      <div 
-        className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
-          paymentMethod === 'cartao' ? 'border-[#FF914C] bg-orange-50' : 'border-gray-200 hover:border-[#FF914C]'
-        }`}
-        onClick={() => setPaymentMethod('cartao')}
-      >
-        <div className="flex items-center space-x-3">
-          <CreditCard className="h-8 w-8 text-[#FF914C]" />
-          <div>
-            <h4 className="font-semibold">Cartão de Crédito</h4>
-            <p className="text-sm text-gray-600">Até 12x sem juros</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -199,26 +143,23 @@ const Payment = () => {
         <div className="max-w-2xl mx-auto">
           {step === 1 && (
             <div className="space-y-6">
-              {/* Plano Selecionado */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <CreditCard className="h-5 w-5" />
-                    <span>Plano Selecionado</span>
+                    <span>Chatbot WhatsApp + IA</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="bg-[#FF914C] text-white p-6 rounded-lg">
-                    <h3 className="text-2xl font-bold">Plano Completo</h3>
-                    <p className="text-3xl font-bold mt-2">R$ 75/mês</p>
+                    <h3 className="text-2xl font-bold">R$ 75/mês</h3>
                     <p className="text-orange-100 mt-2">
-                      ✅ Chatbot IA • ✅ WhatsApp Business • ✅ Dashboard • ✅ Suporte
+                      ✅ Chatbot IA personalizado • ✅ WhatsApp Business • ✅ Dashboard completo • ✅ Suporte
                     </p>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Formulário de Dados */}
               <Card>
                 <CardHeader>
                   <CardTitle>Dados da Empresa</CardTitle>
@@ -289,6 +230,7 @@ const Payment = () => {
                       <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="whatsapp"
+                        type="tel"
                         placeholder="(11) 99999-9999"
                         value={formData.whatsapp}
                         onChange={(e) => handleInputChange('whatsapp', e.target.value)}
@@ -309,50 +251,89 @@ const Payment = () => {
           )}
 
           {step === 2 && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Escolha o método de pagamento</CardTitle>
-                  <p className="text-gray-600">Primeiro mês: R$ 75,00</p>
-                </CardHeader>
-                <CardContent>
-                  {renderPaymentMethods()}
-                  
-                  <Button 
-                    onClick={handlePayment}
-                    disabled={!paymentMethod || loading}
-                    className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3 mt-6"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Processando...
-                      </>
-                    ) : (
-                      `Pagar R$ 75,00 via ${paymentMethod.toUpperCase()}`
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Escolha a forma de pagamento</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div 
+                  className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
+                    paymentMethod === 'pix' ? 'border-[#FF914C] bg-orange-50' : 'border-gray-200 hover:border-[#FF914C]'
+                  }`}
+                  onClick={() => setPaymentMethod('pix')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <Pix className="h-8 w-8 text-[#FF914C]" />
+                    <div>
+                      <h4 className="font-semibold">PIX</h4>
+                      <p className="text-sm text-gray-600">Aprovação instantânea</p>
+                    </div>
+                    <div className="ml-auto">
+                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                        Recomendado
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div 
+                  className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
+                    paymentMethod === 'boleto' ? 'border-[#FF914C] bg-orange-50' : 'border-gray-200 hover:border-[#FF914C]'
+                  }`}
+                  onClick={() => setPaymentMethod('boleto')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <FileText className="h-8 w-8 text-[#FF914C]" />
+                    <div>
+                      <h4 className="font-semibold">Boleto Bancário</h4>
+                      <p className="text-sm text-gray-600">Vencimento em 3 dias úteis</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div 
+                  className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
+                    paymentMethod === 'cartao' ? 'border-[#FF914C] bg-orange-50' : 'border-gray-200 hover:border-[#FF914C]'
+                  }`}
+                  onClick={() => setPaymentMethod('cartao')}
+                >
+                  <div className="flex items-center space-x-3">
+                    <CreditCard className="h-8 w-8 text-[#FF914C]" />
+                    <div>
+                      <h4 className="font-semibold">Cartão de Crédito</h4>
+                      <p className="text-sm text-gray-600">Até 12x sem juros</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={handlePayment}
+                  disabled={!paymentMethod || loading}
+                  className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
+                >
+                  {loading ? 'Processando...' : 'Finalizar Pagamento - R$ 75'}
+                </Button>
+              </CardContent>
+            </Card>
           )}
 
           {step === 3 && (
-            <div className="text-center">
-              <Card>
-                <CardContent className="p-8">
-                  <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-green-800 mb-4">
-                    Pagamento Aprovado!
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    Sua conta está sendo criada automaticamente. 
-                    Você será redirecionado em instantes...
+            <Card className="border-green-200">
+              <CardContent className="p-8 text-center">
+                <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-green-800 mb-4">
+                  Pagamento Aprovado!
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Agora vamos configurar seu chatbot personalizado...
+                </p>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-green-800 font-medium">
+                    Redirecionando para configuração do chatbot
                   </p>
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF914C] mx-auto"></div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       </main>
