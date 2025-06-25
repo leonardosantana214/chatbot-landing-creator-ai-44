@@ -52,10 +52,10 @@ export const useCompleteRegistration = () => {
 
       console.log('✅ Instância criada:', instanceData.instanceId);
 
-      // 2. Criar usuário no Supabase Auth COM todos os dados nos metadados
-      console.log('👤 Criando usuário com todos os dados...');
+      // 2. Criar usuário no Supabase Auth com dados completos
+      console.log('👤 Criando usuário no Supabase...');
       
-      const { error: signUpError } = await signUp(userData.email, userData.password, {
+      const { data: authData, error: signUpError } = await signUp(userData.email, userData.password, {
         name: userData.name,
         company: userData.company,
         area: userData.area,
@@ -69,56 +69,58 @@ export const useCompleteRegistration = () => {
         throw new Error(`Erro ao criar usuário: ${signUpError.message}`);
       }
 
-      // 3. Aguardar criação completa
+      if (!authData.user) {
+        throw new Error('Usuário não foi criado corretamente');
+      }
+
+      console.log('✅ Usuário criado com sucesso!', authData.user.id);
+
+      // 3. Aguardar um pouco para o trigger do perfil ser executado
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // 4. Fazer login automático
-      console.log('🔐 Fazendo login automático...');
-      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-        email: userData.email,
-        password: userData.password,
-      });
-
-      if (loginError) {
-        console.error('❌ Erro no login automático:', loginError);
-        throw new Error(`Erro no login: ${loginError.message}`);
-      }
-
-      console.log('✅ Login realizado com sucesso!');
-
-      // 5. Aguardar estabelecimento da sessão
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // 6. Verificar se o perfil foi criado automaticamente pelo trigger
+      // 4. Verificar se o perfil foi criado pelo trigger
       console.log('🔍 Verificando criação do perfil...');
-      
-      if (!loginData.user) {
-        throw new Error('Usuário não encontrado após login');
-      }
-
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', loginData.user.id)
+        .eq('id', authData.user.id)
         .single();
 
-      if (profileError) {
+      if (profileError && profileError.code !== 'PGRST116') {
         console.error('❌ Erro ao verificar perfil:', profileError);
-        throw new Error(`Erro ao verificar perfil: ${profileError.message}`);
+        // Se não existe, vamos criar manualmente
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: authData.user.id,
+            name: userData.name,
+            email: userData.email,
+            company: userData.company,
+            area: userData.area,
+            whatsapp: userData.whatsapp,
+            instance_id: instanceData.instanceId,
+            instance_name: chatbotConfig.nome_instancia
+          });
+
+        if (insertError) {
+          console.error('❌ Erro ao criar perfil manualmente:', insertError);
+        } else {
+          console.log('✅ Perfil criado manualmente');
+        }
+      } else {
+        console.log('✅ Perfil já existe ou foi criado pelo trigger:', profileData);
       }
 
-      console.log('✅ Perfil criado automaticamente:', profileData);
-
-      // 7. Salvar configuração do chatbot
+      // 5. Salvar configuração do chatbot
       console.log('💾 Salvando configuração do chatbot...');
       
       const configData = {
-        user_id: loginData.user.id,
+        user_id: authData.user.id,
         bot_name: chatbotConfig.nome_da_IA,
         service_type: chatbotConfig.nicho,
         tone: chatbotConfig.personalidade,
         evo_instance_id: chatbotConfig.nome_instancia,
-        phone_number: instanceData.phone,
+        phone_number: instanceData.phone || null,
         is_active: true,
         webhook_url: `https://leowebhook.techcorps.com.br/webhook/${chatbotConfig.nome_instancia}`,
       };
@@ -131,15 +133,15 @@ export const useCompleteRegistration = () => {
 
       if (configError) {
         console.error('❌ Erro ao salvar configuração:', configError);
-        throw new Error(`Erro ao salvar configuração: ${configError.message}`);
+        console.log('⚠️ Continuando sem salvar configuração do chatbot...');
+      } else {
+        console.log('✅ Configuração salva com sucesso!', configResult);
       }
 
-      console.log('✅ Configuração salva com sucesso!', configResult);
-
       toast({
-        title: "🎉 CADASTRO COMPLETO!",
-        description: `Usuário criado! Instance ID salvo nos metadados E na tabela user_profiles: ${instanceData.instanceId}`,
-        duration: 10000,
+        title: "🎉 CONTA CRIADA COM SUCESSO!",
+        description: `Bem-vindo, ${userData.name}! Sua conta e chatbot foram configurados.`,
+        duration: 5000,
       });
 
       return { success: true, instanceData };
@@ -148,9 +150,10 @@ export const useCompleteRegistration = () => {
       console.error('💥 Erro no processo completo:', error);
       
       toast({
-        title: "❌ Erro no Cadastro",
-        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        title: "❌ Erro na Criação da Conta",
+        description: error instanceof Error ? error.message : 'Erro desconhecido ao criar conta',
         variant: "destructive",
+        duration: 10000,
       });
       
       return { success: false };

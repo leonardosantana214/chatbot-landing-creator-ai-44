@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, userData: any) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, userData: any) => Promise<{ data?: any; error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -57,49 +57,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, userData: any) => {
     console.log('📝 Iniciando signup para:', email);
     
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: {
-          name: userData.name,
-          company: userData.company,
-          area: userData.area,
-          whatsapp: userData.whatsapp
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: {
+            name: userData.name,
+            company: userData.company,
+            area: userData.area,
+            whatsapp: userData.whatsapp,
+            instance_id: userData.instance_id,
+            instance_name: userData.instance_name
+          }
         }
+      });
+      
+      if (error) {
+        console.error('❌ Erro no signup:', error);
+        return { error };
       }
-    });
-    
-    if (error) {
-      console.error('❌ Erro no signup:', error);
-    } else {
-      console.log('✅ Signup realizado com sucesso');
+      
+      console.log('✅ Signup realizado com sucesso:', data);
+      return { data, error: null };
+      
+    } catch (error) {
+      console.error('❌ Erro inesperado no signup:', error);
+      return { error: { message: 'Erro inesperado ao criar conta' } };
     }
-    
-    return { error };
   };
 
   const signIn = async (email: string, password: string) => {
     console.log('🔐 Iniciando login para:', email);
     
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (error) {
-      console.error('❌ Erro no login:', error);
-    } else {
-      console.log('✅ Login realizado com sucesso');
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        console.error('❌ Erro no login:', error);
+      } else {
+        console.log('✅ Login realizado com sucesso');
+      }
+      
+      return { error };
+      
+    } catch (error) {
+      console.error('❌ Erro inesperado no login:', error);
+      return { error: { message: 'Erro inesperado no login' } };
     }
-    
-    return { error };
   };
 
   const signOut = async () => {
     console.log('👋 Fazendo logout...');
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('❌ Erro no logout:', error);
+    }
   };
 
   const value = {
