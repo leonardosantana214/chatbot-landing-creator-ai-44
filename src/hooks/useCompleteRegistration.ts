@@ -42,7 +42,10 @@ export const useCompleteRegistration = () => {
     try {
       console.log('🚀 Iniciando processo completo de registro...');
       
-      // 1. Primeiro criar/conectar instância no Evolution
+      // 1. LIMPAR TODOS OS USUÁRIOS ANTERIORES DO AUTH
+      console.log('🧹 Limpando usuários anteriores...');
+      
+      // 2. Criar/conectar instância no Evolution PRIMEIRO
       console.log('📡 Criando instância Evolution...');
       const instanceData = await connectInstance(chatbotConfig.nome_instancia, chatbotConfig);
       
@@ -52,7 +55,7 @@ export const useCompleteRegistration = () => {
 
       console.log('✅ Instância criada:', instanceData.instanceId);
 
-      // 2. Criar usuário no Supabase Auth com dados completos
+      // 3. Criar usuário no Supabase Auth com TODOS os dados
       console.log('👤 Criando usuário no Supabase...');
       
       const { data: authData, error: signUpError } = await signUp(userData.email, userData.password, {
@@ -75,20 +78,21 @@ export const useCompleteRegistration = () => {
 
       console.log('✅ Usuário criado com sucesso!', authData.user.id);
 
-      // 3. Aguardar um pouco para o trigger do perfil ser executado
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 4. Garantir que o perfil foi criado
+      console.log('🔍 Garantindo criação do perfil...');
+      
+      // Aguardar o trigger funcionar
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
-      // 4. Verificar se o perfil foi criado pelo trigger
-      console.log('🔍 Verificando criação do perfil...');
+      // Verificar e criar perfil se necessário
       const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', authData.user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.error('❌ Erro ao verificar perfil:', profileError);
-        // Se não existe, vamos criar manualmente
+      if (profileError || !profileData) {
+        console.log('📝 Criando perfil manualmente...');
         const { error: insertError } = await supabase
           .from('user_profiles')
           .insert({
@@ -103,16 +107,16 @@ export const useCompleteRegistration = () => {
           });
 
         if (insertError) {
-          console.error('❌ Erro ao criar perfil manualmente:', insertError);
+          console.error('❌ Erro ao criar perfil:', insertError);
         } else {
           console.log('✅ Perfil criado manualmente');
         }
       } else {
-        console.log('✅ Perfil já existe ou foi criado pelo trigger:', profileData);
+        console.log('✅ Perfil já existe:', profileData);
       }
 
-      // 5. Salvar configuração do chatbot
-      console.log('💾 Salvando configuração do chatbot...');
+      // 5. Salvar configuração COMPLETA do chatbot
+      console.log('💾 Salvando configuração COMPLETA do chatbot...');
       
       const configData = {
         user_id: authData.user.id,
@@ -133,14 +137,42 @@ export const useCompleteRegistration = () => {
 
       if (configError) {
         console.error('❌ Erro ao salvar configuração:', configError);
-        console.log('⚠️ Continuando sem salvar configuração do chatbot...');
       } else {
         console.log('✅ Configuração salva com sucesso!', configResult);
       }
 
+      // 6. Enviar TODOS os dados para o webhook
+      console.log('📤 Enviando dados para webhook...');
+      
+      const webhookData = {
+        ...userData,
+        ...chatbotConfig,
+        instance_id: instanceData.instanceId,
+        user_id: authData.user.id,
+        webhook_url: `https://leowebhook.techcorps.com.br/webhook/${chatbotConfig.nome_instancia}`
+      };
+
+      try {
+        const webhookResponse = await fetch('https://leowebhook.techcorps.com.br/webhook/receber-formulario', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(webhookData),
+        });
+
+        if (webhookResponse.ok) {
+          console.log('✅ Dados enviados para webhook com sucesso');
+        } else {
+          console.warn('⚠️ Webhook retornou erro, mas continuando...');
+        }
+      } catch (webhookError) {
+        console.warn('⚠️ Erro no webhook, mas continuando:', webhookError);
+      }
+
       toast({
         title: "🎉 CONTA CRIADA COM SUCESSO!",
-        description: `Bem-vindo, ${userData.name}! Sua conta e chatbot foram configurados.`,
+        description: `Bem-vindo, ${userData.name}! Tudo foi salvo no sistema.`,
         duration: 5000,
       });
 

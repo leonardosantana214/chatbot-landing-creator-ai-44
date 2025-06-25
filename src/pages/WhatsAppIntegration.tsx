@@ -16,6 +16,7 @@ const WhatsAppIntegration = () => {
   const [step, setStep] = useState(1);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [connectionSuccess, setConnectionSuccess] = useState(false);
+  const [realQrCode, setRealQrCode] = useState<string | null>(null);
 
   const userData = location.state?.userData;
   const chatbotConfig = location.state?.chatbotConfig;
@@ -56,22 +57,43 @@ const WhatsAppIntegration = () => {
       if (result.success) {
         setStep(2); // Conta criada
         
-        // Simular obtenção do QR Code
-        setTimeout(() => {
+        // Agora buscar o QR Code REAL da Evolution API
+        setTimeout(async () => {
           setStep(3); // Mostrando QR Code
-          // Aqui você normalmente obteria o QR Code real da Evolution API
-          setQrCode('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
           
-          // Simular conexão bem-sucedida após alguns segundos
-          setTimeout(() => {
-            setConnectionSuccess(true);
-            setStep(4); // Sucesso
+          try {
+            const API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '09d18f5a0aa248bebdb35893efeb170e';
+            const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
             
-            toast({
-              title: "🎉 Tudo configurado!",
-              description: "Seu chatbot está pronto e funcionando!",
+            console.log('📱 Obtendo QR Code real da Evolution...');
+            
+            const qrResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${instanceName}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': API_KEY,
+              },
             });
-          }, 5000);
+
+            if (qrResponse.ok) {
+              const qrData = await qrResponse.json();
+              if (qrData.base64) {
+                setRealQrCode(qrData.base64);
+                console.log('✅ QR Code real obtido!');
+              } else {
+                console.log('⚠️ QR Code não disponível, instância pode já estar conectada');
+                // Verificar status da instância
+                checkInstanceStatus();
+              }
+            } else {
+              console.error('❌ Erro ao obter QR Code:', qrResponse.status);
+              // Usar QR Code de exemplo por enquanto
+              setQrCode('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+            }
+          } catch (error) {
+            console.error('❌ Erro ao buscar QR Code:', error);
+            setQrCode('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+          }
         }, 2000);
         
       } else {
@@ -91,6 +113,47 @@ const WhatsAppIntegration = () => {
     }
   };
 
+  const checkInstanceStatus = async () => {
+    try {
+      const API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '09d18f5a0aa248bebdb35893efeb170e';
+      const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
+      
+      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetch/${instanceName}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': API_KEY,
+        },
+      });
+
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        if (statusData.instance?.connectionStatus === 'open') {
+          // Já está conectado
+          setConnectionSuccess(true);
+          setStep(4);
+          toast({
+            title: "🎉 WhatsApp já conectado!",
+            description: "Sua instância já está conectada ao WhatsApp!",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao verificar status:', error);
+    }
+  };
+
+  const handleManualConnection = () => {
+    // Usuário confirma que conectou manualmente
+    setConnectionSuccess(true);
+    setStep(4);
+    
+    toast({
+      title: "🎉 Conexão confirmada!",
+      description: "WhatsApp conectado com sucesso!",
+    });
+  };
+
   const handleFinish = () => {
     navigate('/dashboard');
   };
@@ -102,7 +165,7 @@ const WhatsAppIntegration = () => {
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF914C] mx-auto mb-4"></div>
             <h3 className="text-xl font-semibold mb-2">Criando sua conta...</h3>
-            <p className="text-gray-600">Configurando seu perfil e instância Evolution</p>
+            <p className="text-gray-600">Salvando tudo no sistema e criando instância Evolution</p>
           </div>
         );
       
@@ -111,7 +174,7 @@ const WhatsAppIntegration = () => {
           <div className="text-center">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-green-800 mb-2">Conta criada com sucesso!</h3>
-            <p className="text-gray-600">Agora vamos conectar seu WhatsApp...</p>
+            <p className="text-gray-600">Tudo salvo no Supabase! Agora vamos conectar seu WhatsApp...</p>
           </div>
         );
       
@@ -121,10 +184,10 @@ const WhatsAppIntegration = () => {
             <QrCode className="h-12 w-12 text-[#FF914C] mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-4">Conecte seu WhatsApp</h3>
             
-            {qrCode && (
+            {(realQrCode || qrCode) && (
               <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block">
                 <img 
-                  src={qrCode} 
+                  src={realQrCode || qrCode} 
                   alt="QR Code para WhatsApp" 
                   className="w-48 h-48 mx-auto bg-gray-100"
                 />
@@ -143,12 +206,12 @@ const WhatsAppIntegration = () => {
               </ol>
             </div>
             
-            {!connectionSuccess && (
-              <div className="flex items-center justify-center space-x-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm text-gray-600">Aguardando conexão...</span>
-              </div>
-            )}
+            <Button 
+              onClick={handleManualConnection}
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+            >
+              Confirmar que conectei o WhatsApp
+            </Button>
           </div>
         );
       
@@ -214,7 +277,7 @@ const WhatsAppIntegration = () => {
               Finalizando Configuração
             </h2>
             <p className="text-gray-600">
-              Estamos criando sua conta e conectando tudo
+              Criando conta, salvando no Supabase e conectando WhatsApp
             </p>
           </div>
 
@@ -222,7 +285,7 @@ const WhatsAppIntegration = () => {
             <CardHeader className="bg-[#FF914C] text-white">
               <CardTitle className="text-2xl font-bold text-center">
                 <Smartphone className="h-8 w-8 mx-auto mb-2" />
-                Configuração Automática
+                Configuração Completa
               </CardTitle>
             </CardHeader>
             <CardContent className="p-8">

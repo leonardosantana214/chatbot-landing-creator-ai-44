@@ -11,7 +11,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, ArrowLeft } from 'lucide-react';
 
 const AuthPage = () => {
-  const [isLogin, setIsLogin] = useState(false); // Padrão: mostrar cadastro primeiro
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -22,7 +21,7 @@ const AuthPage = () => {
     whatsapp: ''
   });
   
-  const { signUp, signIn } = useAuth();
+  const { signIn } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -46,76 +45,35 @@ const AuthPage = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        console.log('🔐 Tentando fazer login...');
-        const { error } = await signIn(formData.email, formData.password);
-        
-        if (error) {
-          console.error('❌ Erro no login:', error);
+      console.log('🔐 Tentando fazer login...');
+      const { error } = await signIn(formData.email, formData.password);
+      
+      if (error) {
+        console.error('❌ Erro no login:', error);
+        if (error.message.includes('Invalid login credentials')) {
+          toast({
+            title: "Credenciais inválidas",
+            description: "Você precisa comprar o serviço primeiro para ter acesso!",
+            variant: "destructive",
+          });
+          // Redirecionar para pagamento se não tem conta
+          setTimeout(() => {
+            navigate('/payment');
+          }, 2000);
+        } else {
           toast({
             title: "Erro no login",
             description: error.message,
             variant: "destructive",
           });
-        } else {
-          console.log('✅ Login realizado com sucesso!');
-          toast({
-            title: "Login realizado!",
-            description: "Bem-vindo de volta.",
-          });
-          navigate('/dashboard');
         }
       } else {
-        console.log('📝 Tentando criar conta...');
-        
-        // Validações básicas
-        if (!formData.name || !formData.company || !formData.area || !formData.whatsapp) {
-          toast({
-            title: "Dados incompletos",
-            description: "Preencha todos os campos obrigatórios.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const { error } = await signUp(formData.email, formData.password, {
-          name: formData.name,
-          company: formData.company,
-          area: formData.area,
-          whatsapp: formData.whatsapp
+        console.log('✅ Login realizado com sucesso!');
+        toast({
+          title: "Login realizado!",
+          description: "Bem-vindo de volta.",
         });
-        
-        if (error) {
-          console.error('❌ Erro no cadastro:', error);
-          if (error.message.includes('User already registered')) {
-            toast({
-              title: "Email já cadastrado",
-              description: "Este email já está registrado. Tente fazer login.",
-              variant: "destructive",
-            });
-            setIsLogin(true); // Muda para modo login
-          } else {
-            toast({
-              title: "Erro no cadastro", 
-              description: error.message,
-              variant: "destructive",
-            });
-          }
-        } else {
-          console.log('✅ Cadastro realizado com sucesso!');
-          toast({
-            title: "Conta criada com sucesso!",
-            description: "Você já pode acessar o sistema.",
-          });
-          
-          // Tentar fazer login automático
-          setTimeout(async () => {
-            const { error: loginError } = await signIn(formData.email, formData.password);
-            if (!loginError) {
-              navigate('/dashboard');
-            }
-          }, 1000);
-        }
+        navigate('/dashboard');
       }
     } catch (error) {
       console.error('💥 Erro geral:', error);
@@ -150,71 +108,15 @@ const AuthPage = () => {
         <Card className="shadow-xl">
           <CardHeader className="text-center bg-black text-white rounded-t-lg">
             <CardTitle className="text-2xl font-bold">
-              {isLogin ? 'Entrar na Techcorps' : 'Criar Conta na Techcorps'}
+              Entrar na Techcorps
             </CardTitle>
             <p className="text-gray-300">
-              {isLogin ? 'Acesse seu painel de controle' : 'Configure sua IA em poucos minutos'}
+              Acesse seu painel de controle
             </p>
           </CardHeader>
 
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nome Completo *</Label>
-                    <Input
-                      id="name"
-                      type="text"
-                      placeholder="Seu nome completo"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Empresa *</Label>
-                    <Input
-                      id="company"
-                      type="text"
-                      placeholder="Nome da sua empresa"
-                      value={formData.company}
-                      onChange={(e) => handleInputChange('company', e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="area">Área de Atuação *</Label>
-                    <Select value={formData.area} onValueChange={(value) => handleInputChange('area', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione sua área" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {businessAreas.map((area) => (
-                          <SelectItem key={area} value={area}>
-                            {area}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="whatsapp">WhatsApp *</Label>
-                    <Input
-                      id="whatsapp"
-                      type="tel"
-                      placeholder="(11) 99999-9999"
-                      value={formData.whatsapp}
-                      onChange={(e) => handleInputChange('whatsapp', e.target.value)}
-                      required
-                    />
-                  </div>
-                </>
-              )}
-
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>
                 <Input
@@ -232,11 +134,10 @@ const AuthPage = () => {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Sua senha"
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
                   required
-                  minLength={6}
                 />
               </div>
 
@@ -248,24 +149,24 @@ const AuthPage = () => {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isLogin ? 'Entrando...' : 'Criando conta...'}
+                    Entrando...
                   </>
                 ) : (
-                  isLogin ? 'Entrar' : 'Criar Conta'
+                  'Entrar'
                 )}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                {isLogin ? 'Não tem uma conta?' : 'Já tem uma conta?'}
+                Ainda não tem uma conta?
               </p>
               <Button
                 variant="link"
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => navigate('/payment')}
                 className="text-black hover:text-gray-700"
               >
-                {isLogin ? 'Criar conta agora' : 'Fazer login'}
+                Comprar agora por R$ 75/mês
               </Button>
             </div>
           </CardContent>
