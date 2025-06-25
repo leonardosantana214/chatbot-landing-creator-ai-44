@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bot, CheckCircle } from 'lucide-react';
+import { Bot, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,10 +31,10 @@ const ChatbotSetup = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loadingConfig, setLoadingConfig] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   
   const userData = location.state?.userData;
@@ -52,6 +52,22 @@ const ChatbotSetup = () => {
     funcionalidades: [],
     nome_instancia: ''
   });
+
+  // Verificar autenticação primeiro
+  useEffect(() => {
+    console.log('🔐 Estado da autenticação:', { user: !!user, loading, userId: user?.id });
+    
+    if (!loading && !user) {
+      console.log('❌ Usuário não autenticado, redirecionando para /auth');
+      toast({
+        title: "Autenticação necessária",
+        description: "Você precisa estar logado para configurar o chatbot.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+  }, [user, loading, navigate, toast]);
 
   // Determinar se é edição baseado no usuário logado
   useEffect(() => {
@@ -142,6 +158,18 @@ const ChatbotSetup = () => {
   };
 
   const handleFinish = async () => {
+    // Verificar se usuário está autenticado antes de prosseguir
+    if (!user) {
+      console.error('❌ Tentativa de criar configuração sem usuário autenticado');
+      toast({
+        title: "Erro de autenticação",
+        description: "Você precisa estar logado para continuar.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
     if (isEditing) {
       await updateExistingConfig();
     } else {
@@ -150,10 +178,19 @@ const ChatbotSetup = () => {
   };
 
   const updateExistingConfig = async () => {
-    if (!user) return;
+    if (!user) {
+      console.error('❌ Usuário não encontrado para atualização');
+      toast({
+        title: "Erro",
+        description: "Usuário não está logado.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
 
     try {
-      setLoading(true);
+      setLoadingConfig(true);
       console.log('🔄 Atualizando configuração existente para usuário:', user.id);
 
       const { error } = await supabase
@@ -209,23 +246,24 @@ const ChatbotSetup = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setLoadingConfig(false);
     }
   };
 
   const createNewConfig = async () => {
     if (!user) {
-      console.error('❌ Usuário não encontrado');
+      console.error('❌ Usuário não encontrado para criação');
       toast({
-        title: "Erro",
-        description: "Usuário não logado.",
+        title: "Erro de autenticação",
+        description: "Você precisa estar logado para criar um chatbot.",
         variant: "destructive",
       });
+      navigate('/auth');
       return;
     }
 
     try {
-      setLoading(true);
+      setLoadingConfig(true);
       console.log('🚀 Iniciando criação de nova configuração...');
       console.log('👤 User ID:', user.id);
       console.log('🤖 Config dados:', config);
@@ -296,20 +334,6 @@ const ChatbotSetup = () => {
         console.log('✅ Perfil do usuário atualizado com sucesso');
       }
 
-      // Terceiro: Verificar se dados foram salvos
-      console.log('🔍 Verificando dados salvos...');
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('chatbot_configs')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true);
-
-      if (verifyError) {
-        console.error('❌ Erro ao verificar dados:', verifyError);
-      } else {
-        console.log('✅ Dados verificados no banco:', verifyData);
-      }
-
       toast({
         title: "Sucesso!",
         description: "Chatbot criado e salvo com sucesso!",
@@ -330,7 +354,7 @@ const ChatbotSetup = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setLoadingConfig(false);
     }
   };
 
@@ -341,6 +365,43 @@ const ChatbotSetup = () => {
     });
     navigate('/dashboard');
   };
+
+  // Loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="p-6 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF914C] mx-auto mb-4"></div>
+            <h3 className="text-lg font-semibold mb-2">Verificando autenticação...</h3>
+            <p className="text-gray-600">Aguarde um momento</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show error if user is not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-red-800 mb-2">
+              Autenticação Necessária
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Você precisa estar logado para configurar um chatbot.
+            </p>
+            <Button onClick={() => navigate('/auth')} className="w-full">
+              Fazer Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -608,10 +669,10 @@ const ChatbotSetup = () => {
 
                   <Button
                     onClick={handleFinish}
-                    disabled={loading || !config.nome_da_IA || !config.empresa || !config.nicho || !config.personalidade}
+                    disabled={loadingConfig || !config.nome_da_IA || !config.empresa || !config.nicho || !config.personalidade}
                     className="bg-[#FF914C] hover:bg-[#FF7A2B] text-white px-8 ml-auto"
                   >
-                    {loading ? (
+                    {loadingConfig ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                         {isEditing ? 'Salvando...' : 'Criando chatbot...'}
