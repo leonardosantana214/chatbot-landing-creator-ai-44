@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EvolutionStatus {
@@ -17,7 +17,6 @@ interface UseEvolutionStatusReturn {
   refreshStatus: () => Promise<EvolutionStatus | null>;
 }
 
-// Constantes movidas para fora do componente para evitar dependências circulares
 const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
 const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
 
@@ -26,8 +25,7 @@ export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusRet
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Função principal de verificação de status com useCallback estável
-  const checkStatus = useCallback(async (instanceToCheck?: string): Promise<EvolutionStatus | null> => {
+  const checkStatus = async (instanceToCheck?: string): Promise<EvolutionStatus | null> => {
     const targetInstance = instanceToCheck || instanceName;
     if (!targetInstance) return null;
 
@@ -93,21 +91,19 @@ export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusRet
     } finally {
       setIsLoading(false);
     }
-  }, [instanceName]);
+  };
 
-  // Função de refresh simples que usa checkStatus
-  const refreshStatus = useCallback(async (): Promise<EvolutionStatus | null> => {
+  const refreshStatus = async (): Promise<EvolutionStatus | null> => {
     return checkStatus();
-  }, [checkStatus]);
+  };
 
-  // Effect para executar a verificação inicial e setup do interval
   useEffect(() => {
     if (instanceName) {
       checkStatus();
       const interval = setInterval(() => checkStatus(), 30000);
       return () => clearInterval(interval);
     }
-  }, [instanceName, checkStatus]);
+  }, [instanceName]);
 
   return {
     status,
