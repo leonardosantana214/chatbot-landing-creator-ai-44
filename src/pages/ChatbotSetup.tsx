@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -214,6 +215,7 @@ const ChatbotSetup = () => {
 
   const createNewConfig = async () => {
     if (!user) {
+      console.error('❌ Usuário não encontrado');
       toast({
         title: "Erro",
         description: "Usuário não logado.",
@@ -224,59 +226,93 @@ const ChatbotSetup = () => {
 
     try {
       setLoading(true);
-      console.log('🚀 Criando nova configuração de chatbot para usuário:', user.id);
-      console.log('📋 Dados da configuração:', config);
+      console.log('🚀 Iniciando criação de nova configuração...');
+      console.log('👤 User ID:', user.id);
+      console.log('🤖 Config dados:', config);
 
-      // Primeiro, criar/atualizar o chatbot_config
-      const { data: chatbotData, error: chatbotError } = await supabase
-        .from('chatbot_configs')
-        .upsert({
-          user_id: user.id,
-          bot_name: config.nome_da_IA,
-          service_type: config.nicho,
-          tone: config.personalidade,
-          evo_instance_id: config.nome_instancia,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id'
-        })
-        .select()
-        .single();
-
-      if (chatbotError) {
-        console.error('❌ Erro ao criar configuração do chatbot:', chatbotError);
+      // Validar dados obrigatórios
+      if (!config.nome_da_IA || !config.empresa || !config.nicho || !config.personalidade) {
+        console.error('❌ Dados obrigatórios faltando');
         toast({
           title: "Erro",
-          description: "Não foi possível criar a configuração do chatbot.",
+          description: "Preencha todos os campos obrigatórios.",
           variant: "destructive",
         });
         return;
       }
 
-      console.log('✅ Configuração do chatbot criada:', chatbotData);
+      // Primeiro: Criar configuração do chatbot
+      console.log('💾 Salvando configuração do chatbot...');
+      const chatbotData = {
+        user_id: user.id,
+        bot_name: config.nome_da_IA,
+        service_type: config.nicho,
+        tone: config.personalidade,
+        evo_instance_id: config.nome_instancia,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-      // Atualizar o perfil do usuário com a instância
+      console.log('📤 Dados sendo enviados para chatbot_configs:', chatbotData);
+
+      const { data: chatbotResult, error: chatbotError } = await supabase
+        .from('chatbot_configs')
+        .insert(chatbotData)
+        .select()
+        .single();
+
+      if (chatbotError) {
+        console.error('❌ Erro detalhado ao criar chatbot:', chatbotError);
+        toast({
+          title: "Erro ao salvar chatbot",
+          description: `Erro: ${chatbotError.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('✅ Chatbot salvo com sucesso:', chatbotResult);
+
+      // Segundo: Atualizar perfil do usuário
+      console.log('👤 Atualizando perfil do usuário...');
+      const profileData = {
+        instance_id: config.nome_instancia,
+        instance_name: config.nome_instancia,
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('📤 Dados sendo enviados para user_profiles:', profileData);
+
       const { error: profileError } = await supabase
         .from('user_profiles')
-        .update({
-          instance_id: config.nome_instancia,
-          instance_name: config.nome_instancia,
-          updated_at: new Date().toISOString()
-        })
+        .update(profileData)
         .eq('id', user.id);
 
       if (profileError) {
-        console.error('⚠️ Erro ao atualizar perfil do usuário:', profileError);
+        console.error('⚠️ Erro ao atualizar perfil:', profileError);
         // Não falha se der erro no perfil, pois o chatbot foi criado
+      } else {
+        console.log('✅ Perfil do usuário atualizado com sucesso');
       }
 
-      console.log('✅ Perfil do usuário atualizado com instância');
+      // Terceiro: Verificar se dados foram salvos
+      console.log('🔍 Verificando dados salvos...');
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('chatbot_configs')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      if (verifyError) {
+        console.error('❌ Erro ao verificar dados:', verifyError);
+      } else {
+        console.log('✅ Dados verificados no banco:', verifyData);
+      }
 
       toast({
         title: "Sucesso!",
-        description: "Chatbot criado com sucesso! Agora conecte seu WhatsApp.",
+        description: "Chatbot criado e salvo com sucesso!",
       });
 
       // Mostrar QR Code para conectar WhatsApp
@@ -287,7 +323,7 @@ const ChatbotSetup = () => {
       }
 
     } catch (error) {
-      console.error('❌ Erro ao criar configuração:', error);
+      console.error('❌ Erro geral ao criar configuração:', error);
       toast({
         title: "Erro",
         description: "Ocorreu um erro inesperado ao criar o chatbot.",
@@ -331,6 +367,22 @@ const ChatbotSetup = () => {
 
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
+          {/* Debug Info para desenvolvimento */}
+          {user && (
+            <div className="bg-blue-50 p-4 rounded-lg mb-6">
+              <h3 className="font-semibold text-blue-800 mb-2">🔧 Info de Debug:</h3>
+              <div className="text-xs text-blue-700 space-y-1">
+                <div><strong>User ID:</strong> {user.id}</div>
+                <div><strong>Email:</strong> {user.email}</div>
+                <div><strong>Is Editing:</strong> {isEditing ? 'Sim' : 'Não'}</div>
+                <div><strong>Is New Registration:</strong> {isNewRegistration ? 'Sim' : 'Não'}</div>
+                <div><strong>Nome da IA:</strong> {config.nome_da_IA || 'Vazio'}</div>
+                <div><strong>Empresa:</strong> {config.empresa || 'Vazio'}</div>
+                <div><strong>Instance Name:</strong> {config.nome_instancia || 'Vazio'}</div>
+              </div>
+            </div>
+          )}
+
           {/* Mostrar QR Code se solicitado */}
           {showQRCode && config.nome_instancia && (
             <div className="mb-8">
@@ -381,7 +433,7 @@ const ChatbotSetup = () => {
                 {(currentStep === 1 || isEditing) && (
                   <div className="space-y-6">
                     <div>
-                      <Label htmlFor="nome_da_IA">Nome da sua IA</Label>
+                      <Label htmlFor="nome_da_IA">Nome da sua IA *</Label>
                       <Input
                         id="nome_da_IA"
                         value={config.nome_da_IA}
@@ -392,7 +444,7 @@ const ChatbotSetup = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="empresa">Nome da empresa</Label>
+                      <Label htmlFor="empresa">Nome da empresa *</Label>
                       <Input
                         id="empresa"
                         value={config.empresa}
@@ -413,7 +465,7 @@ const ChatbotSetup = () => {
                     )}
 
                     <div>
-                      <Label htmlFor="nicho">Nicho/Área de atuação</Label>
+                      <Label htmlFor="nicho">Nicho/Área de atuação *</Label>
                       <Select value={config.nicho} onValueChange={(value) => setConfig({ ...config, nicho: value })}>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione sua área de atuação" />
@@ -432,7 +484,7 @@ const ChatbotSetup = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="personalidade">Personalidade da IA</Label>
+                      <Label htmlFor="personalidade">Personalidade da IA *</Label>
                       <Select value={config.personalidade} onValueChange={(value) => setConfig({ ...config, personalidade: value })}>
                         <SelectTrigger>
                           <SelectValue placeholder="Como sua IA deve se comportar?" />
