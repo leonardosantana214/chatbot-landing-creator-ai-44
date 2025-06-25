@@ -36,7 +36,6 @@ const ChatbotSetup = () => {
   const [loading, setLoading] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   
-  // Dados do usuário podem vir da navegação (apenas para novos registros)
   const userData = location.state?.userData;
   const isNewRegistration = location.state?.paymentConfirmed;
   
@@ -66,7 +65,8 @@ const ChatbotSetup = () => {
     const loadExistingConfig = async () => {
       if (isEditing && user) {
         try {
-          // Buscar apenas configurações do usuário logado
+          console.log('🔍 Buscando configuração existente para usuário:', user.id);
+          
           const { data: configs, error } = await supabase
             .from('chatbot_configs')
             .select('*')
@@ -75,7 +75,7 @@ const ChatbotSetup = () => {
             .limit(1);
 
           if (error) {
-            console.error('Erro ao buscar configuração:', error);
+            console.error('❌ Erro ao buscar configuração:', error);
             return;
           }
 
@@ -95,9 +95,11 @@ const ChatbotSetup = () => {
               funcionalidades: [],
               nome_instancia: existingConfig.evo_instance_id || ''
             });
+          } else {
+            console.log('📝 Nenhuma configuração encontrada, iniciando nova configuração');
           }
         } catch (error) {
-          console.error('Erro ao carregar configuração:', error);
+          console.error('❌ Erro ao carregar configuração:', error);
         }
       }
     };
@@ -151,22 +153,22 @@ const ChatbotSetup = () => {
 
     try {
       setLoading(true);
-      console.log('🔄 Atualizando configuração existente...');
+      console.log('🔄 Atualizando configuração existente para usuário:', user.id);
 
-      // Atualizar apenas dados do usuário logado
       const { error } = await supabase
         .from('chatbot_configs')
         .update({
           bot_name: config.nome_da_IA,
           service_type: config.nicho,
           tone: config.personalidade,
+          evo_instance_id: config.nome_instancia,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id)
         .eq('is_active', true);
 
       if (error) {
-        console.error('Erro ao atualizar:', error);
+        console.error('❌ Erro ao atualizar configuração:', error);
         toast({
           title: "Erro",
           description: "Não foi possível atualizar a configuração.",
@@ -174,6 +176,18 @@ const ChatbotSetup = () => {
         });
         return;
       }
+
+      // Atualizar também o perfil do usuário com a instância
+      await supabase
+        .from('user_profiles')
+        .update({
+          instance_id: config.nome_instancia,
+          instance_name: config.nome_instancia,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      console.log('✅ Configuração atualizada com sucesso');
 
       toast({
         title: "Sucesso!",
@@ -187,7 +201,7 @@ const ChatbotSetup = () => {
         navigate('/dashboard');
       }
     } catch (error) {
-      console.error('Erro ao atualizar configuração:', error);
+      console.error('❌ Erro ao atualizar configuração:', error);
       toast({
         title: "Erro",
         description: "Ocorreu um erro inesperado.",
@@ -199,24 +213,89 @@ const ChatbotSetup = () => {
   };
 
   const createNewConfig = async () => {
-    if (!userData) {
+    if (!user) {
       toast({
         title: "Erro",
-        description: "Dados do usuário não encontrados.",
+        description: "Usuário não logado.",
         variant: "destructive",
       });
       return;
     }
 
-    console.log('🎯 Iniciando cadastro completo...');
-    console.log('👤 Dados do usuário:', userData);
-    console.log('🤖 Configuração do chatbot:', config);
+    try {
+      setLoading(true);
+      console.log('🚀 Criando nova configuração de chatbot para usuário:', user.id);
+      console.log('📋 Dados da configuração:', config);
 
-    toast({
-      title: "Funcionalidade em desenvolvimento",
-      description: "O registro completo será implementado em breve.",
-      variant: "destructive",
-    });
+      // Primeiro, criar/atualizar o chatbot_config
+      const { data: chatbotData, error: chatbotError } = await supabase
+        .from('chatbot_configs')
+        .upsert({
+          user_id: user.id,
+          bot_name: config.nome_da_IA,
+          service_type: config.nicho,
+          tone: config.personalidade,
+          evo_instance_id: config.nome_instancia,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        })
+        .select()
+        .single();
+
+      if (chatbotError) {
+        console.error('❌ Erro ao criar configuração do chatbot:', chatbotError);
+        toast({
+          title: "Erro",
+          description: "Não foi possível criar a configuração do chatbot.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('✅ Configuração do chatbot criada:', chatbotData);
+
+      // Atualizar o perfil do usuário com a instância
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .update({
+          instance_id: config.nome_instancia,
+          instance_name: config.nome_instancia,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (profileError) {
+        console.error('⚠️ Erro ao atualizar perfil do usuário:', profileError);
+        // Não falha se der erro no perfil, pois o chatbot foi criado
+      }
+
+      console.log('✅ Perfil do usuário atualizado com instância');
+
+      toast({
+        title: "Sucesso!",
+        description: "Chatbot criado com sucesso! Agora conecte seu WhatsApp.",
+      });
+
+      // Mostrar QR Code para conectar WhatsApp
+      if (config.nome_instancia) {
+        setShowQRCode(true);
+      } else {
+        navigate('/dashboard');
+      }
+
+    } catch (error) {
+      console.error('❌ Erro ao criar configuração:', error);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro inesperado ao criar o chatbot.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleQRConnectionSuccess = () => {
@@ -444,7 +523,7 @@ const ChatbotSetup = () => {
                   </div>
                 )}
 
-                {currentStep === 3 && !isEditing && userData && (
+                {currentStep === 3 && !isEditing && (
                   <div className="space-y-6">
                     <div className="text-center">
                       <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
@@ -455,10 +534,8 @@ const ChatbotSetup = () => {
                     </div>
 
                     <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                      <div><span className="font-medium">Usuário:</span> {userData.name}</div>
-                      <div><span className="font-medium">Email:</span> {userData.email}</div>
-                      <div><span className="font-medium">Empresa:</span> {userData.company}</div>
                       <div><span className="font-medium">Nome da IA:</span> {config.nome_da_IA || 'Não informado'}</div>
+                      <div><span className="font-medium">Empresa:</span> {config.empresa || 'Não informado'}</div>
                       <div><span className="font-medium">Instância:</span> <code className="bg-gray-200 px-2 py-1 rounded text-sm">{config.nome_instancia}</code></div>
                       <div><span className="font-medium">Nicho:</span> {config.nicho || 'Não informado'}</div>
                       <div><span className="font-medium">Personalidade:</span> {config.personalidade || 'Não informado'}</div>
@@ -479,17 +556,17 @@ const ChatbotSetup = () => {
 
                   <Button
                     onClick={handleFinish}
-                    disabled={loading}
+                    disabled={loading || !config.nome_da_IA || !config.empresa || !config.nicho || !config.personalidade}
                     className="bg-[#FF914C] hover:bg-[#FF7A2B] text-white px-8 ml-auto"
                   >
                     {loading ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        {isEditing ? 'Salvando...' : 'Criando conta...'}
+                        {isEditing ? 'Salvando...' : 'Criando chatbot...'}
                       </>
                     ) : (
                       isEditing ? 'Salvar e Conectar WhatsApp' : 
-                      currentStep === 3 ? 'Criar Conta e Chatbot' : 'Próximo'
+                      currentStep === 3 ? 'Criar Chatbot' : 'Próximo'
                     )}
                   </Button>
                 </div>
