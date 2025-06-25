@@ -33,6 +33,17 @@ export const useCompleteRegistration = () => {
   const { signUp } = useAuth();
   const { connectInstance } = useEvolutionConnection();
 
+  const clearAllAuthUsers = async () => {
+    try {
+      console.log('🧹 Limpando todos os usuários do Auth...');
+      // Fazer logout de qualquer usuário logado
+      await supabase.auth.signOut();
+      console.log('✅ Usuários limpos com sucesso');
+    } catch (error) {
+      console.error('⚠️ Erro ao limpar usuários:', error);
+    }
+  };
+
   const registerUserComplete = async (
     userData: UserRegistrationData,
     chatbotConfig: ChatbotConfigData
@@ -42,29 +53,36 @@ export const useCompleteRegistration = () => {
     try {
       console.log('🚀 Iniciando processo completo de registro...');
       
-      // 1. LIMPAR TODOS OS USUÁRIOS ANTERIORES DO AUTH
-      console.log('🧹 Limpando usuários anteriores...');
+      // 1. LIMPAR TODOS OS USUÁRIOS ANTERIORES
+      await clearAllAuthUsers();
       
       // 2. Criar/conectar instância no Evolution PRIMEIRO
       console.log('📡 Criando instância Evolution...');
       const instanceData = await connectInstance(chatbotConfig.nome_instancia, chatbotConfig);
       
       if (!instanceData) {
-        throw new Error('Falha ao criar instância no Evolution');
+        throw new Error('Falha ao criar instância no Evolution API');
       }
 
       console.log('✅ Instância criada:', instanceData.instanceId);
 
-      // 3. Criar usuário no Supabase Auth com TODOS os dados
+      // 3. Criar usuário no Supabase Auth SEM confirmação de email
       console.log('👤 Criando usuário no Supabase...');
       
-      const { data: authData, error: signUpError } = await signUp(userData.email, userData.password, {
-        name: userData.name,
-        company: userData.company,
-        area: userData.area,
-        whatsapp: userData.whatsapp,
-        instance_id: instanceData.instanceId,
-        instance_name: chatbotConfig.nome_instancia
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            name: userData.name,
+            company: userData.company,
+            area: userData.area,
+            whatsapp: userData.whatsapp,
+            instance_id: instanceData.instanceId,
+            instance_name: chatbotConfig.nome_instancia
+          },
+          emailRedirectTo: undefined // Remover redirecionamento de email
+        }
       });
 
       if (signUpError) {
@@ -78,11 +96,11 @@ export const useCompleteRegistration = () => {
 
       console.log('✅ Usuário criado com sucesso!', authData.user.id);
 
-      // 4. Garantir que o perfil foi criado
+      // 4. Aguardar e garantir que o perfil foi criado
       console.log('🔍 Garantindo criação do perfil...');
       
       // Aguardar o trigger funcionar
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Verificar e criar perfil se necessário
       const { data: profileData, error: profileError } = await supabase
@@ -137,6 +155,7 @@ export const useCompleteRegistration = () => {
 
       if (configError) {
         console.error('❌ Erro ao salvar configuração:', configError);
+        throw new Error('Erro ao salvar configuração do chatbot');
       } else {
         console.log('✅ Configuração salva com sucesso!', configResult);
       }
@@ -170,9 +189,23 @@ export const useCompleteRegistration = () => {
         console.warn('⚠️ Erro no webhook, mas continuando:', webhookError);
       }
 
+      // 7. Fazer login automático após criação
+      console.log('🔐 Fazendo login automático...');
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: userData.email,
+        password: userData.password,
+      });
+
+      if (signInError) {
+        console.error('❌ Erro no login automático:', signInError);
+        throw new Error('Conta criada mas erro no login automático');
+      }
+
+      console.log('✅ Login automático realizado com sucesso!');
+
       toast({
         title: "🎉 CONTA CRIADA COM SUCESSO!",
-        description: `Bem-vindo, ${userData.name}! Tudo foi salvo no sistema.`,
+        description: `Bem-vindo, ${userData.name}! Você está logado e pronto para usar o sistema.`,
         duration: 5000,
       });
 

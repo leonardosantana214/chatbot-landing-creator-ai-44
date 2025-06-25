@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -14,31 +13,12 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
-    name: '',
-    company: '',
-    area: '',
-    whatsapp: ''
+    password: ''
   });
   
   const { signIn } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  const businessAreas = [
-    'Saúde e Medicina',
-    'Educação', 
-    'Tecnologia',
-    'Varejo e Comércio',
-    'Alimentação',
-    'Beleza e Estética',
-    'Consultoria',
-    'Imobiliário',
-    'Advocacia',
-    'Contabilidade',
-    'Marketing',
-    'Outros'
-  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,17 +32,13 @@ const AuthPage = () => {
         console.error('❌ Erro no login:', error);
         if (error.message.includes('Invalid login credentials')) {
           toast({
-            title: "Credenciais inválidas",
-            description: "Você precisa comprar o serviço primeiro para ter acesso!",
+            title: "❌ Credenciais inválidas",
+            description: "Email ou senha incorretos. Verifique se você já criou sua conta através do pagamento.",
             variant: "destructive",
           });
-          // Redirecionar para pagamento se não tem conta
-          setTimeout(() => {
-            navigate('/payment');
-          }, 2000);
         } else {
           toast({
-            title: "Erro no login",
+            title: "❌ Erro no login",
             description: error.message,
             variant: "destructive",
           });
@@ -70,15 +46,15 @@ const AuthPage = () => {
       } else {
         console.log('✅ Login realizado com sucesso!');
         toast({
-          title: "Login realizado!",
-          description: "Bem-vindo de volta.",
+          title: "✅ Login realizado!",
+          description: "Bem-vindo de volta ao seu dashboard.",
         });
         navigate('/dashboard');
       }
     } catch (error) {
       console.error('💥 Erro geral:', error);
       toast({
-        title: "Erro",
+        title: "❌ Erro",
         description: "Ocorreu um erro inesperado.",
         variant: "destructive",
       });
@@ -158,16 +134,28 @@ const AuthPage = () => {
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                Ainda não tem uma conta?
-              </p>
-              <Button
-                variant="link"
-                onClick={() => navigate('/payment')}
-                className="text-black hover:text-gray-700"
-              >
-                Comprar agora por R$ 75/mês
-              </Button>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-blue-800 mb-2">Ainda não tem uma conta?</h4>
+                <p className="text-sm text-blue-700 mb-3">
+                  Para criar uma conta, você precisa fazer o pagamento primeiro na nossa página inicial.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/payment')}
+                  className="w-full"
+                >
+                  Ir para Pagamento
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-4 text-center">
+              <div className="bg-yellow-50 p-3 rounded border">
+                <p className="text-xs text-yellow-700">
+                  <strong>Importante:</strong> Se você acabou de criar sua conta, 
+                  verifique seu email e confirme o cadastro antes de fazer login.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
