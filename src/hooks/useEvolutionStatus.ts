@@ -94,13 +94,15 @@ export const useEvolutionStatus = (instanceName?: string): UseEvolutionStatusRet
   };
 
   const refreshStatus = async (): Promise<EvolutionStatus | null> => {
-    return checkStatus();
+    return await checkStatus();
   };
 
   useEffect(() => {
     if (instanceName) {
       checkStatus();
-      const interval = setInterval(() => checkStatus(), 30000);
+      const interval = setInterval(() => {
+        checkStatus();
+      }, 30000);
       return () => clearInterval(interval);
     }
   }, [instanceName]);

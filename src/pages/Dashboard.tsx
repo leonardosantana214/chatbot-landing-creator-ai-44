@@ -54,7 +54,7 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
 
-  const fetchUserProfile = async (): Promise<void> => {
+  const fetchUserProfile = async () => {
     if (!user) return;
 
     try {
@@ -74,7 +74,7 @@ const Dashboard = () => {
     }
   };
 
-  const fetchDashboardStats = async (): Promise<void> => {
+  const fetchDashboardStats = async () => {
     if (!user) return;
 
     try {
@@ -82,7 +82,7 @@ const Dashboard = () => {
         supabase.from('contacts').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('messages').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('consulta').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('chats').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_active', true)
+        supabase.from('chats').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active')
       ]);
 
       setDashboardStats({
@@ -96,7 +96,7 @@ const Dashboard = () => {
     }
   };
 
-  const fetchChatbotConfig = async (): Promise<void> => {
+  const fetchChatbotConfig = async () => {
     if (!user) return;
 
     try {
@@ -115,7 +115,6 @@ const Dashboard = () => {
         setChatbotConfig(configs[0]);
       } else {
         setChatbotConfig(null);
-        // Redirecionar automaticamente para criação do chatbot se não existir
         if (!initialLoad) {
           toast({
             title: "Chatbot não encontrado",
@@ -129,7 +128,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleRefreshAll = async (): Promise<void> => {
+  const handleRefreshAll = async () => {
     setIsLoading(true);
     await Promise.all([
       fetchUserProfile(),
@@ -144,7 +143,7 @@ const Dashboard = () => {
     });
   };
 
-  const handleConnectionSuccess = (): void => {
+  const handleConnectionSuccess = () => {
     toast({
       title: "WhatsApp Conectado!",
       description: "Conexão estabelecida com sucesso",
@@ -152,11 +151,11 @@ const Dashboard = () => {
     fetchChatbotConfig();
   };
 
-  const handleNavigate = (path: string): void => {
+  const handleNavigate = (path: string) => {
     navigate(path);
   };
 
-  const handleNavigateToSetup = (): void => {
+  const handleNavigateToSetup = () => {
     navigate('/chatbot-setup');
   };
 
@@ -172,7 +171,6 @@ const Dashboard = () => {
     }
   }, [user]);
 
-  // Redirecionamento automático se não tiver chatbot após carregamento inicial
   useEffect(() => {
     if (!initialLoad && user && !chatbotConfig) {
       const timer = setTimeout(() => {
