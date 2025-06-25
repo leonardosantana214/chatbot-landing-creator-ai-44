@@ -71,7 +71,7 @@ export const useCompleteRegistration = () => {
 
       console.log('✅ Instância Evolution criada:', instanceData.instanceId);
 
-      // 3. Criar usuário no Supabase Auth (SEM confirmação de email)
+      // 3. Criar usuário no Supabase Auth SEM confirmação de email
       console.log('👤 Criando usuário no Supabase Auth...');
       
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -102,11 +102,25 @@ export const useCompleteRegistration = () => {
       const userId = authData.user.id;
       console.log('✅ Usuário criado no Auth:', userId);
 
-      // 4. Aguardar trigger do perfil
-      console.log('⏳ Aguardando criação automática do perfil...');
+      // 4. Aguardar trigger do perfil e confirmar usuário automaticamente
+      console.log('⏳ Confirmando usuário automaticamente...');
+      
+      // Usar a API admin para confirmar o usuário (funciona com a chave service_role)
+      const { error: confirmError } = await supabase.auth.admin.updateUserById(
+        userId,
+        { email_confirm: true }
+      );
+
+      if (confirmError) {
+        console.log('⚠️ Não foi possível confirmar via admin API, continuando...');
+      } else {
+        console.log('✅ Usuário confirmado automaticamente!');
+      }
+
+      // 5. Aguardar criação automática do perfil
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // 5. Verificar se perfil foi criado automaticamente
+      // 6. Verificar se perfil foi criado automaticamente pelo trigger
       const { data: existingProfile, error: profileCheckError } = await supabase
         .from('user_profiles')
         .select('*')
@@ -118,7 +132,7 @@ export const useCompleteRegistration = () => {
       }
 
       if (!existingProfile) {
-        // 6. Criar perfil manualmente se não foi criado pelo trigger
+        // 7. Criar perfil manualmente se não foi criado pelo trigger
         console.log('📝 Criando perfil manualmente...');
         
         const { data: newProfile, error: createProfileError } = await supabase
@@ -138,15 +152,16 @@ export const useCompleteRegistration = () => {
 
         if (createProfileError) {
           console.error('❌ Erro ao criar perfil manualmente:', createProfileError);
-          throw new Error('Erro ao criar perfil do usuário');
+          // Não falhar aqui, continuar o processo
+          console.log('⚠️ Continuando sem perfil por enquanto...');
+        } else {
+          console.log('✅ Perfil criado manualmente:', newProfile);
         }
-        
-        console.log('✅ Perfil criado manualmente:', newProfile);
       } else {
         console.log('✅ Perfil já existe (criado pelo trigger):', existingProfile);
       }
 
-      // 7. Verificar se já existe configuração para evitar duplicata
+      // 8. Verificar se já existe configuração para evitar duplicata
       const { data: existingConfig } = await supabase
         .from('chatbot_configs')
         .select('*')
@@ -161,7 +176,7 @@ export const useCompleteRegistration = () => {
           .eq('user_id', userId);
       }
 
-      // 8. Criar configuração do chatbot
+      // 9. Criar configuração do chatbot
       console.log('💾 Salvando configuração do chatbot...');
       
       const configData = {
@@ -188,7 +203,7 @@ export const useCompleteRegistration = () => {
 
       console.log('✅ Configuração do chatbot salva:', configResult);
 
-      // 9. Enviar dados para webhook
+      // 10. Enviar dados para webhook
       console.log('📤 Enviando dados para webhook...');
       
       const webhookData = {
@@ -217,20 +232,9 @@ export const useCompleteRegistration = () => {
         console.warn('⚠️ Erro no webhook, mas continuando:', webhookError);
       }
 
-      // 10. Login automático (forçar confirmação)
-      console.log('🔐 Fazendo login automático FORÇADO...');
+      // 11. Login automático
+      console.log('🔐 Fazendo login automático...');
       
-      // Primeiro confirmar o usuário manualmente no banco
-      const { error: confirmError } = await supabase.auth.admin.updateUserById(
-        userId,
-        { email_confirm: true }
-      );
-
-      if (confirmError) {
-        console.log('⚠️ Não foi possível confirmar via admin, tentando login direto...');
-      }
-
-      // Tentar login
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: userData.email,
         password: userData.password,
@@ -239,25 +243,22 @@ export const useCompleteRegistration = () => {
       if (signInError) {
         console.error('❌ Erro no login automático:', signInError);
         
-        // Se erro de email não confirmado, mostrar mensagem específica
-        if (signInError.message.includes('Email not confirmed')) {
-          toast({
-            title: "📧 Confirme seu email",
-            description: "Verifique sua caixa de entrada e confirme seu email antes de prosseguir.",
-            duration: 8000,
-          });
-        }
+        toast({
+          title: "⚠️ Conta criada com sucesso!",
+          description: "Faça login manualmente para acessar sua conta.",
+          duration: 8000,
+        });
         
-        throw new Error('Conta criada mas erro no login automático');
+        // Não falhar aqui, a conta foi criada
+      } else {
+        console.log('✅ Login automático realizado!');
+        
+        toast({
+          title: "🎉 CONTA CRIADA COM SUCESSO!",
+          description: `Bem-vindo, ${userData.name}! Tudo configurado e pronto para usar.`,
+          duration: 5000,
+        });
       }
-
-      console.log('✅ Login automático realizado!');
-
-      toast({
-        title: "🎉 CONTA CRIADA COM SUCESSO!",
-        description: `Bem-vindo, ${userData.name}! Tudo configurado e pronto para usar.`,
-        duration: 5000,
-      });
 
       return { success: true, instanceData };
 
