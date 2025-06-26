@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -65,9 +64,9 @@ const Dashboard = () => {
   
   const [chatbots, setChatbots] = useState<ChatbotConfig[]>([]);
   const [recentConversations, setRecentConversations] = useState<RecentConversation[]>([]);
-  const [evolutionStatus, setEvolutionStatus] = useState<EvolutionStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
 
   // Função para formatar telefone brasileiro
   const formatPhoneBrazilian = (phone: string) => {
@@ -108,7 +107,7 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      console.log('📊 Buscando estatísticas completas...');
+      console.log('📊 Buscando estatísticas...');
       
       const today = new Date().toISOString().split('T')[0];
       
@@ -180,41 +179,11 @@ const Dashboard = () => {
     }
   };
 
-  const checkEvolutionStatus = async () => {
-    const activeChatbot = chatbots.find(bot => bot.is_active);
-    if (!activeChatbot?.evo_instance_id) return;
-
-    try {
-      const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
-      const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
-      
-      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connectionState/${activeChatbot.evo_instance_id}`, {
-        headers: { 'apikey': API_KEY }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setEvolutionStatus({
-          instanceName: activeChatbot.evo_instance_id,
-          status: data.state === 'open' ? 'connected' : 'disconnected',
-          phone: activeChatbot.phone_number || undefined
-        });
-      }
-    } catch (error) {
-      console.error('❌ Erro ao verificar status Evolution:', error);
-      setEvolutionStatus({
-        instanceName: activeChatbot.evo_instance_id,
-        status: 'disconnected'
-      });
-    }
-  };
-
-  const generateQRCode = async () => {
-    const activeChatbot = chatbots.find(bot => bot.is_active);
-    if (!activeChatbot?.evo_instance_id) {
+  const generateQRCode = async (instanceName: string) => {
+    if (!instanceName) {
       toast({
         title: "Erro",
-        description: "Nenhum chatbot ativo encontrado.",
+        description: "Nome da instância não encontrado",
         variant: "destructive",
       });
       return;
@@ -225,10 +194,9 @@ const Dashboard = () => {
       const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
       const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
       
-      console.log('🔄 Gerando QR Code para instância:', activeChatbot.evo_instance_id);
+      console.log('🔄 Gerando QR Code para instância:', instanceName);
       
-      // Primeiro, tentar conectar a instância
-      const connectResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${activeChatbot.evo_instance_id}`, {
+      const connectResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${instanceName}`, {
         method: 'GET',
         headers: { 
           'apikey': API_KEY,
@@ -244,11 +212,7 @@ const Dashboard = () => {
           const qrCode = connectData.base64 || connectData.qrcode;
           const formattedQR = qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`;
           
-          setEvolutionStatus(prev => ({
-            ...prev!,
-            qrCode: formattedQR,
-            status: 'connecting'
-          }));
+          setQrCodeData(formattedQR);
           setShowQRCode(true);
           
           toast({
@@ -259,45 +223,9 @@ const Dashboard = () => {
         }
       }
 
-      // Se não conseguiu obter QR Code, tentar buscar status da instância
-      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances`, {
-        method: 'GET',
-        headers: { 
-          'apikey': API_KEY,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (statusResponse.ok) {
-        const instances = await statusResponse.json();
-        const instance = instances.find((inst: any) => 
-          inst.instanceName === activeChatbot.evo_instance_id || 
-          inst.instance?.instanceName === activeChatbot.evo_instance_id
-        );
-
-        if (instance && (instance.qrcode || instance.qr)) {
-          const qrCode = instance.qrcode || instance.qr;
-          const formattedQR = qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`;
-          
-          setEvolutionStatus(prev => ({
-            ...prev!,
-            qrCode: formattedQR,
-            status: 'connecting'
-          }));
-          setShowQRCode(true);
-          
-          toast({
-            title: "QR Code obtido!",
-            description: "Escaneie com seu WhatsApp para conectar.",
-          });
-          return;
-        }
-      }
-
-      // Se chegou até aqui, não conseguiu obter o QR Code
       toast({
         title: "Erro ao gerar QR Code",
-        description: "Não foi possível obter o QR Code. Tente novamente em alguns instantes.",
+        description: "Não foi possível obter o QR Code. Tente novamente.",
         variant: "destructive",
       });
 
@@ -317,14 +245,13 @@ const Dashboard = () => {
     setLoading(true);
     await Promise.all([
       fetchStats(),
-      fetchRecentConversations(),
-      checkEvolutionStatus()
+      fetchRecentConversations()
     ]);
     setLoading(false);
     
     toast({
       title: "Atualizado!",
-      description: "Todos os dados foram atualizados.",
+      description: "Dados atualizados com informações reais da Evolution API.",
     });
   };
 
@@ -345,12 +272,6 @@ const Dashboard = () => {
       handleRefresh();
     }
   }, [user]);
-
-  useEffect(() => {
-    if (chatbots.length > 0) {
-      checkEvolutionStatus();
-    }
-  }, [chatbots]);
 
   if (profileLoading) {
     return (
@@ -409,15 +330,6 @@ const Dashboard = () => {
               </Button>
               
               <Button 
-                onClick={() => navigate('/chatbot-setup')} 
-                variant="outline" 
-                size="sm"
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Configurações
-              </Button>
-              
-              <Button 
                 onClick={() => signOut()} 
                 variant="outline" 
                 size="sm"
@@ -470,17 +382,6 @@ const Dashboard = () => {
                   <Bot className="h-5 w-5 mr-2" />
                   Status do Chatbot
                 </div>
-                {evolutionStatus?.status === 'disconnected' && (
-                  <Button 
-                    onClick={generateQRCode}
-                    disabled={loading}
-                    size="sm"
-                    className="bg-[#FF914C] hover:bg-[#FF7A2B]"
-                  >
-                    <QrCode className="h-4 w-4 mr-2" />
-                    Gerar QR Code
-                  </Button>
-                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -494,10 +395,15 @@ const Dashboard = () => {
                       <div>
                         <h4 className="font-semibold">{bot.bot_name}</h4>
                         <p className="text-sm text-gray-600">{bot.service_type} • {bot.tone}</p>
-                        {bot.phone_number && (
+                        {bot.evolution_phone && (
                           <p className="text-xs text-gray-500 flex items-center">
                             <Phone className="h-3 w-3 mr-1" />
-                            {formatPhoneBrazilian(bot.phone_number)}
+                            {formatPhoneBrazilian(bot.evolution_phone)}
+                          </p>
+                        )}
+                        {bot.real_instance_id && (
+                          <p className="text-xs text-gray-400 font-mono">
+                            ID: {bot.real_instance_id}
                           </p>
                         )}
                       </div>
@@ -505,48 +411,66 @@ const Dashboard = () => {
                     
                     <div className="text-right space-y-2">
                       <Badge className={`${
-                        bot.is_active 
-                          ? evolutionStatus?.status === 'connected' 
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
+                        bot.connection_status === 'connected' 
+                          ? 'bg-green-500 text-white'
+                          : 'bg-red-500 text-white'
                       }`}>
-                        {bot.is_active 
-                          ? evolutionStatus?.status === 'connected' 
-                            ? '🟢 Conectado'
-                            : '🟡 Desconectado'
-                          : '🔴 Inativo'
-                        }
+                        {bot.connection_status === 'connected' ? (
+                          <>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Conectado
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Desconectado
+                          </>
+                        )}
                       </Badge>
                       
-                      {evolutionStatus && (
-                        <p className="text-xs text-gray-500">
-                          Evolution: {evolutionStatus.instanceName}
-                        </p>
+                      {bot.connection_status !== 'connected' && bot.evo_instance_id && (
+                        <Button 
+                          onClick={() => generateQRCode(bot.evo_instance_id)}
+                          disabled={loading}
+                          size="sm"
+                          className="w-full bg-[#FF914C] hover:bg-[#FF7A2B]"
+                        >
+                          <QrCode className="h-4 w-4 mr-2" />
+                          Gerar QR Code
+                        </Button>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
 
-              {showQRCode && evolutionStatus?.qrCode && (
+              {showQRCode && qrCodeData && (
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg text-center">
                   <h4 className="font-semibold mb-2">Escaneie o QR Code com seu WhatsApp</h4>
                   <img 
-                    src={evolutionStatus.qrCode} 
+                    src={qrCodeData} 
                     alt="QR Code" 
                     className="mx-auto mb-4 border rounded-lg max-w-xs"
                   />
                   <p className="text-sm text-gray-600 mb-4">
                     WhatsApp → Menu → Dispositivos conectados → Conectar dispositivo
                   </p>
-                  <Button 
-                    onClick={() => setShowQRCode(false)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Fechar QR Code
-                  </Button>
+                  <div className="flex gap-2 justify-center">
+                    <Button 
+                      onClick={() => setShowQRCode(false)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Fechar QR Code
+                    </Button>
+                    <Button 
+                      onClick={handleRefresh}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Verificar Conexão
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -729,17 +653,6 @@ const Dashboard = () => {
                   <BarChart3 className="h-4 w-4 mr-2" />
                   Gerenciar Clientes
                 </Button>
-
-                {evolutionStatus?.status === 'disconnected' && (
-                  <Button 
-                    onClick={generateQRCode}
-                    disabled={loading}
-                    className="w-full justify-start bg-yellow-500 hover:bg-yellow-600 text-white"
-                  >
-                    <Smartphone className="h-4 w-4 mr-2" />
-                    Reconectar WhatsApp
-                  </Button>
-                )}
               </div>
             </CardContent>
           </Card>

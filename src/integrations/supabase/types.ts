@@ -12,12 +12,16 @@ export type Database = {
       chatbot_configs: {
         Row: {
           bot_name: string
+          connection_status: string | null
           created_at: string
           evo_instance_id: string | null
           evo_token: string | null
+          evolution_phone: string | null
           id: string
           is_active: boolean | null
+          last_status_check: string | null
           phone_number: string | null
+          real_instance_id: string | null
           service_type: string
           tone: string
           updated_at: string
@@ -26,12 +30,16 @@ export type Database = {
         }
         Insert: {
           bot_name: string
+          connection_status?: string | null
           created_at?: string
           evo_instance_id?: string | null
           evo_token?: string | null
+          evolution_phone?: string | null
           id?: string
           is_active?: boolean | null
+          last_status_check?: string | null
           phone_number?: string | null
+          real_instance_id?: string | null
           service_type: string
           tone: string
           updated_at?: string
@@ -40,12 +48,16 @@ export type Database = {
         }
         Update: {
           bot_name?: string
+          connection_status?: string | null
           created_at?: string
           evo_instance_id?: string | null
           evo_token?: string | null
+          evolution_phone?: string | null
           id?: string
           is_active?: boolean | null
+          last_status_check?: string | null
           phone_number?: string | null
+          real_instance_id?: string | null
           service_type?: string
           tone?: string
           updated_at?: string
@@ -321,36 +333,45 @@ export type Database = {
         Row: {
           area: string | null
           company: string | null
+          connection_status: string | null
           created_at: string | null
           email: string | null
+          evolution_phone: string | null
           id: string
           instance_id: string | null
           instance_name: string | null
           name: string | null
+          real_instance_id: string | null
           updated_at: string | null
           whatsapp: string | null
         }
         Insert: {
           area?: string | null
           company?: string | null
+          connection_status?: string | null
           created_at?: string | null
           email?: string | null
+          evolution_phone?: string | null
           id: string
           instance_id?: string | null
           instance_name?: string | null
           name?: string | null
+          real_instance_id?: string | null
           updated_at?: string | null
           whatsapp?: string | null
         }
         Update: {
           area?: string | null
           company?: string | null
+          connection_status?: string | null
           created_at?: string | null
           email?: string | null
+          evolution_phone?: string | null
           id?: string
           instance_id?: string | null
           instance_name?: string | null
           name?: string | null
+          real_instance_id?: string | null
           updated_at?: string | null
           whatsapp?: string | null
         }
