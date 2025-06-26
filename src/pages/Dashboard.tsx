@@ -373,10 +373,31 @@ const Dashboard = () => {
                 <p className="font-semibold">{formatPhoneBrazilian(profile.whatsapp || '')}</p>
               </div>
             </div>
+            
+            {/* Exibir dados da instância se disponíveis */}
+            {(profile.instance_id || profile.instance_name) && (
+              <div className="mt-4 pt-4 border-t">
+                <h4 className="font-semibold text-gray-700 mb-2">Dados da Instância:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {profile.instance_id && (
+                    <div>
+                      <span className="text-sm text-gray-600">Instance ID:</span>
+                      <p className="font-mono text-sm bg-gray-100 p-1 rounded">{profile.instance_id}</p>
+                    </div>
+                  )}
+                  {profile.instance_name && (
+                    <div>
+                      <span className="text-sm text-gray-600">Instance Name:</span>
+                      <p className="font-mono text-sm bg-gray-100 p-1 rounded">{profile.instance_name}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Status do Chatbot */}
+        {/* Status do Chatbot - RESTAURADO */}
         {chatbots.length > 0 && (
           <Card>
             <CardHeader>
@@ -432,15 +453,20 @@ const Dashboard = () => {
                       </Badge>
                       
                       {bot.connection_status !== 'connected' && bot.evo_instance_id && (
-                        <Button 
-                          onClick={() => generateQRCode(bot.evo_instance_id!)}
-                          disabled={loading}
-                          size="sm"
-                          className="w-full bg-[#FF914C] hover:bg-[#FF7A2B]"
-                        >
-                          <QrCode className="h-4 w-4 mr-2" />
-                          Gerar QR Code
-                        </Button>
+                        <div className="space-y-1">
+                          <Button 
+                            onClick={() => generateQRCode(bot.evo_instance_id!)}
+                            disabled={loading}
+                            size="sm"
+                            className="w-full bg-[#FF914C] hover:bg-[#FF7A2B]"
+                          >
+                            <QrCode className="h-4 w-4 mr-2" />
+                            Gerar QR Code
+                          </Button>
+                          <p className="text-xs text-gray-500 text-center">
+                            (Opcional - pode conectar depois)
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -450,6 +476,9 @@ const Dashboard = () => {
               {showQRCode && qrCodeData && (
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg text-center">
                   <h4 className="font-semibold mb-2">Escaneie o QR Code com seu WhatsApp</h4>
+                  <p className="text-sm text-gray-600 mb-3">
+                    ⚠️ Esta conexão é <strong>opcional</strong>. Você pode fechar e usar o sistema normalmente.
+                  </p>
                   <img 
                     src={qrCodeData} 
                     alt="QR Code" 

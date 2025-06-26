@@ -8,9 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, ArrowLeft } from 'lucide-react';
+import EmailVerification from '@/components/EmailVerification';
 
 const AuthPage = () => {
   const [loading, setLoading] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -35,6 +37,13 @@ const AuthPage = () => {
             title: "❌ Credenciais inválidas",
             description: "Email ou senha incorretos. Verifique se você já criou sua conta através do pagamento.",
             variant: "destructive",
+          });
+        } else if (error.message.includes('Email not confirmed')) {
+          console.log('📧 Email não confirmado, iniciando verificação...');
+          setShowEmailVerification(true);
+          toast({
+            title: "📧 Email não verificado",
+            description: "Você precisa verificar seu email antes de fazer login.",
           });
         } else {
           toast({
@@ -63,9 +72,32 @@ const AuthPage = () => {
     }
   };
 
+  const handleEmailVerificationSuccess = () => {
+    console.log('✅ Email verificado, redirecionando...');
+    navigate('/dashboard');
+  };
+
+  const handleBackFromVerification = () => {
+    setShowEmailVerification(false);
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  if (showEmailVerification) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <EmailVerification 
+            email={formData.email}
+            onVerificationSuccess={handleEmailVerificationSuccess}
+            onBack={handleBackFromVerification}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
