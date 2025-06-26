@@ -40,7 +40,7 @@ export const useEvolutionStatus = (instanceName?: string) => {
         const data = await response.json();
         console.log('📊 Status da conexão recebido:', data);
         
-        // CORREÇÃO: Verificar tanto o state direto quanto o instance.state
+        // Verificar estado da conexão - CORREÇÃO: verificar state corretamente
         const connectionState = data.state || data.instance?.state;
         const isConnected = connectionState === 'open';
         const phone = data.instance?.phone || data.phone || null;
@@ -74,26 +74,30 @@ export const useEvolutionStatus = (instanceName?: string) => {
     try {
       console.log('💾 Atualizando status no Supabase:', { instanceName, isConnected, phone });
       
-      // Atualizar user_profiles
+      // Atualizar user_profiles com dados completos da instância
       const { error: profileError } = await supabase
         .from('user_profiles')
         .update({
           connection_status: isConnected ? 'connected' : 'pending',
+          instance_name: instanceName,
+          instance_id: instanceName, // Salvar instance_name como instance_id também
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.id)
-        .eq('instance_name', instanceName);
+        .eq('id', user.id);
 
       if (profileError) {
         console.warn('⚠️ Erro ao atualizar perfil:', profileError);
       }
 
-      // Atualizar chatbot_configs
+      // Atualizar chatbot_configs com dados completos
       const { error: configError } = await supabase
         .from('chatbot_configs')
         .update({
           connection_status: isConnected ? 'connected' : 'pending',
           evolution_phone: phone || null,
+          evo_instance_id: instanceName,
+          real_instance_id: instanceName,
+          instance_name: instanceName,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id);
@@ -149,8 +153,8 @@ export const useEvolutionStatus = (instanceName?: string) => {
         console.log('🔄 Status mudou, atualizando...');
         await updateConnectionStatus(targetInstanceName, nowConnected, evolutionStatus.phone);
         
-        // Mostrar toast apenas quando conecta
-        if (nowConnected && evolutionStatus.phone) {
+        // Mostrar toast apenas quando conecta pela primeira vez
+        if (nowConnected && evolutionStatus.phone && !currentlyConnected) {
           toast({
             title: "🎉 WhatsApp conectado automaticamente!",
             description: `Número: ${evolutionStatus.phone}`,
@@ -162,7 +166,7 @@ export const useEvolutionStatus = (instanceName?: string) => {
       // 5. Atualizar estado local SEMPRE com dados da Evolution API
       const newStatus: EvolutionStatusData = {
         instanceName: targetInstanceName,
-        instanceId: configData.evo_instance_id,
+        instanceId: targetInstanceName, // Usar instanceName como instanceId
         phone: evolutionStatus.phone || configData.evolution_phone,
         isConnected: evolutionStatus.isConnected, // SEMPRE usar dados da Evolution API
         status: evolutionStatus.isConnected ? 'connected' : 'pending',

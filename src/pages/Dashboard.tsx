@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Bot, Users, MessageCircle, BarChart3, LogOut, Smartphone, CheckCircle, AlertCircle, Clock, Phone, Building, QrCode, Settings } from 'lucide-react';
+import { RefreshCw, Bot, Users, MessageCircle, BarChart3, LogOut, Building, Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import WhatsAppStatusSection from '@/components/dashboard/WhatsAppStatusSection';
 
 interface DashboardStats {
   totalContacts: number;
@@ -61,17 +62,13 @@ const Dashboard = () => {
   const [chatbots, setChatbots] = useState<ChatbotConfig[]>([]);
   const [recentConversations, setRecentConversations] = useState<RecentConversation[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showQRCode, setShowQRCode] = useState(false);
-  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
 
   // Função para formatar telefone brasileiro
   const formatPhoneBrazilian = (phone: string) => {
     if (!phone) return '';
     
-    // Remove todos os caracteres não numéricos
     const numbers = phone.replace(/\D/g, '');
     
-    // Se tem 13 dígitos (55 + DDD + número)
     if (numbers.length === 13 && numbers.startsWith('55')) {
       const ddd = numbers.substring(2, 4);
       const firstPart = numbers.substring(4, 9);
@@ -79,7 +76,6 @@ const Dashboard = () => {
       return `+55 (${ddd}) ${firstPart}-${secondPart}`;
     }
     
-    // Se tem 11 dígitos (DDD + número)
     if (numbers.length === 11) {
       const ddd = numbers.substring(0, 2);
       const firstPart = numbers.substring(2, 7);
@@ -87,7 +83,6 @@ const Dashboard = () => {
       return `+55 (${ddd}) ${firstPart}-${secondPart}`;
     }
     
-    // Se tem 10 dígitos (DDD + número sem 9)
     if (numbers.length === 10) {
       const ddd = numbers.substring(0, 2);
       const firstPart = numbers.substring(2, 6);
@@ -95,7 +90,6 @@ const Dashboard = () => {
       return `+55 (${ddd}) ${firstPart}-${secondPart}`;
     }
 
-    // Retorna o número original se não conseguir formatar
     return phone;
   };
 
@@ -173,68 +167,6 @@ const Dashboard = () => {
     }
   };
 
-  const generateQRCode = async (instanceName: string) => {
-    if (!instanceName) {
-      toast({
-        title: "Erro",
-        description: "Nome da instância não encontrado",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
-      const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
-      
-      console.log('🔄 Gerando QR Code para instância:', instanceName);
-      
-      const connectResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${instanceName}`, {
-        method: 'GET',
-        headers: { 
-          'apikey': API_KEY,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (connectResponse.ok) {
-        const connectData = await connectResponse.json();
-        console.log('✅ Resposta da conexão:', connectData);
-        
-        if (connectData.base64 || connectData.qrcode) {
-          const qrCode = connectData.base64 || connectData.qrcode;
-          const formattedQR = qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`;
-          
-          setQrCodeData(formattedQR);
-          setShowQRCode(true);
-          
-          toast({
-            title: "QR Code gerado!",
-            description: "Escaneie com seu WhatsApp para conectar.",
-          });
-          return;
-        }
-      }
-
-      toast({
-        title: "Erro ao gerar QR Code",
-        description: "Não foi possível obter o QR Code. Tente novamente.",
-        variant: "destructive",
-      });
-
-    } catch (error) {
-      console.error('❌ Erro ao gerar QR Code:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao conectar com a API. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleRefresh = async () => {
     setLoading(true);
     await Promise.all([
@@ -308,7 +240,7 @@ const Dashboard = () => {
               />
               <div>
                 <h1 className="text-xl font-bold text-black">Dashboard</h1>
-                <p className="text-sm text-gray-600">Bem-vindo, {profile.name}!</p>
+                <p className="text-sm text-gray-600">Bem-vindo, {profile?.name}!</p>
               </div>
             </div>
             
@@ -349,24 +281,24 @@ const Dashboard = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <span className="text-sm text-gray-600">Empresa:</span>
-                <p className="font-semibold">{profile.company}</p>
+                <p className="font-semibold">{profile?.company}</p>
               </div>
               <div>
                 <span className="text-sm text-gray-600">Área:</span>
-                <p className="font-semibold">{profile.area}</p>
+                <p className="font-semibold">{profile?.area}</p>
               </div>
               <div>
                 <span className="text-sm text-gray-600">Email:</span>
-                <p className="font-semibold">{profile.email}</p>
+                <p className="font-semibold">{profile?.email}</p>
               </div>
               <div>
                 <span className="text-sm text-gray-600">WhatsApp:</span>
-                <p className="font-semibold">{formatPhoneBrazilian(profile.whatsapp || '')}</p>
+                <p className="font-semibold">{formatPhoneBrazilian(profile?.whatsapp || '')}</p>
               </div>
             </div>
             
             {/* Exibir dados da instância se disponíveis */}
-            {(profile.instance_id || profile.instance_name) && (
+            {(profile?.instance_id || profile?.instance_name) && (
               <div className="mt-4 pt-4 border-t">
                 <h4 className="font-semibold text-gray-700 mb-2">Dados da Instância:</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -388,114 +320,12 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Status do Chatbot - RESTAURADO */}
-        {chatbots.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <Bot className="h-5 w-5 mr-2" />
-                  Status do Chatbot
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {chatbots.map((bot) => (
-                  <div key={bot.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-[#FF914C] rounded-full flex items-center justify-center">
-                        <Bot className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold">{bot.bot_name}</h4>
-                        <p className="text-sm text-gray-600">{bot.service_type} • {bot.tone}</p>
-                        {bot.evolution_phone && (
-                          <p className="text-xs text-gray-500 flex items-center">
-                            <Phone className="h-3 w-3 mr-1" />
-                            {formatPhoneBrazilian(bot.evolution_phone)}
-                          </p>
-                        )}
-                        {bot.real_instance_id && (
-                          <p className="text-xs text-gray-400 font-mono">
-                            ID: {bot.real_instance_id}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="text-right space-y-2">
-                      <Badge className={`${
-                        bot.connection_status === 'connected' 
-                          ? 'bg-green-500 text-white'
-                          : 'bg-red-500 text-white'
-                      }`}>
-                        {bot.connection_status === 'connected' ? (
-                          <>
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Conectado
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Desconectado
-                          </>
-                        )}
-                      </Badge>
-                      
-                      {bot.connection_status !== 'connected' && bot.evo_instance_id && (
-                        <div className="space-y-1">
-                          <Button 
-                            onClick={() => generateQRCode(bot.evo_instance_id!)}
-                            disabled={loading}
-                            size="sm"
-                            className="w-full bg-[#FF914C] hover:bg-[#FF7A2B]"
-                          >
-                            <QrCode className="h-4 w-4 mr-2" />
-                            Gerar QR Code
-                          </Button>
-                          <p className="text-xs text-gray-500 text-center">
-                            (pode conectar depois)
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {showQRCode && qrCodeData && (
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg text-center">
-                  <h4 className="font-semibold mb-2">Escaneie o QR Code com seu WhatsApp</h4>
-                  <img 
-                    src={qrCodeData} 
-                    alt="QR Code" 
-                    className="mx-auto mb-4 border rounded-lg max-w-xs"
-                  />
-                  <p className="text-sm text-gray-600 mb-4">
-                    WhatsApp → Menu → Dispositivos conectados → Conectar dispositivo
-                  </p>
-                  <div className="flex gap-2 justify-center">
-                    <Button 
-                      onClick={() => setShowQRCode(false)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      Fechar QR Code
-                    </Button>
-                    <Button 
-                      onClick={handleRefresh}
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      Verificar Conexão
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        {/* Status do WhatsApp - NOVO COMPONENTE CORRIGIDO */}
+        <WhatsAppStatusSection 
+          chatbots={chatbots}
+          onRefresh={handleRefresh}
+          loading={loading}
+        />
 
         {/* Estatísticas */}
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
@@ -561,14 +391,13 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-[#FF914C]">{stats.activeChatbots}</div>
-              <p className="text-xs text-muted-foreground">Ativos</p>
+              <p className="text-xs text-muted-foreference">Ativos</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Conversas Recentes e Ações Rápidas */}
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Conversas Recentes */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
