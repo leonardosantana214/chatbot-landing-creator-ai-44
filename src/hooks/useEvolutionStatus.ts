@@ -26,8 +26,6 @@ export const useEvolutionStatus = (instanceName?: string) => {
 
   const checkEvolutionConnection = useCallback(async (instanceName: string): Promise<{isConnected: boolean, phone?: string, state?: string}> => {
     try {
-      console.log('🔍 Verificando conexão Evolution para:', instanceName);
-      
       const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connectionState/${instanceName}`, {
         method: 'GET',
         headers: {
@@ -38,13 +36,10 @@ export const useEvolutionStatus = (instanceName?: string) => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 Resposta da conexão:', data);
-        
         const isConnected = data.state === 'open';
         const phone = data.instance?.phone || null;
         
         if (isConnected) {
-          console.log('✅ Instância conectada detectada!', { phone, state: data.state });
           return { isConnected, phone, state: data.state };
         }
         
@@ -62,8 +57,6 @@ export const useEvolutionStatus = (instanceName?: string) => {
     if (!user) return;
 
     try {
-      console.log('💾 Atualizando status de conexão:', { instanceName, isConnected, phone });
-      
       // Atualizar user_profiles
       const { error: profileError } = await supabase
         .from('user_profiles')
@@ -91,8 +84,6 @@ export const useEvolutionStatus = (instanceName?: string) => {
       if (configError) {
         console.warn('⚠️ Erro ao atualizar config:', configError);
       }
-
-      console.log('✅ Status atualizado no Supabase');
     } catch (error) {
       console.error('💥 Erro ao atualizar status:', error);
     }
@@ -106,8 +97,6 @@ export const useEvolutionStatus = (instanceName?: string) => {
     setIsLoading(true);
     
     try {
-      console.log('🔄 Verificando status automaticamente:', targetInstanceName);
-      
       // 1. Buscar dados do Supabase primeiro
       const { data: configData } = await supabase
         .from('chatbot_configs')
@@ -116,7 +105,6 @@ export const useEvolutionStatus = (instanceName?: string) => {
         .single();
 
       if (!configData) {
-        console.log('❌ Configuração não encontrada para:', targetInstanceName);
         setStatus(null);
         return;
       }
@@ -130,7 +118,6 @@ export const useEvolutionStatus = (instanceName?: string) => {
       
       // 4. Se status mudou, atualizar no Supabase
       if (currentlyConnected !== nowConnected) {
-        console.log('🔄 Status mudou:', { antes: currentlyConnected, agora: nowConnected });
         await updateConnectionStatus(targetInstanceName, nowConnected, evolutionStatus.phone);
         
         // Mostrar toast apenas quando conecta
@@ -162,26 +149,28 @@ export const useEvolutionStatus = (instanceName?: string) => {
     }
   }, [instanceName, user, isRefreshing, checkEvolutionConnection, updateConnectionStatus, toast]);
 
-  // Verificação inicial
+  // Verificação inicial apenas quando necessário
   useEffect(() => {
-    if (instanceName && user && !isRefreshing) {
-      console.log('🚀 Iniciando verificação automática para:', instanceName);
+    if (instanceName && user && !isRefreshing && !status) {
       refreshStatus();
     }
   }, [instanceName, user]);
 
-  // Auto-refresh mais frequente para detectar conexões
+  // Auto-refresh mais inteligente
   useEffect(() => {
     if (!instanceName || !user || isRefreshing) return;
 
+    // Apenas verificar se não está conectado
+    if (status && status.isConnected) return;
+
     const interval = setInterval(() => {
-      if (!isRefreshing) {
+      if (!isRefreshing && (!status || !status.isConnected)) {
         refreshStatus();
       }
-    }, 10000); // Verificar a cada 10 segundos
+    }, 15000); // Verificar a cada 15 segundos apenas quando desconectado
 
     return () => clearInterval(interval);
-  }, [instanceName, user, isRefreshing, refreshStatus]);
+  }, [instanceName, user, isRefreshing, status, refreshStatus]);
 
   return {
     status,

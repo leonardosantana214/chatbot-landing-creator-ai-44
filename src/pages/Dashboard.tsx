@@ -43,13 +43,6 @@ interface RecentConversation {
   unread_count: number;
 }
 
-interface EvolutionStatus {
-  instanceName: string;
-  status: 'connected' | 'disconnected' | 'connecting';
-  phone?: string;
-  qrCode?: string;
-}
-
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
@@ -110,8 +103,6 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      console.log('📊 Buscando estatísticas...');
-      
       const today = new Date().toISOString().split('T')[0];
       
       const [contactsResult, messagesResult, chatsResult, chatbotsResult, todayMessagesResult] = await Promise.all([
@@ -271,10 +262,10 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && profile) {
       handleRefresh();
     }
-  }, [user]);
+  }, [user, profile]);
 
   if (profileLoading) {
     return (
@@ -464,7 +455,7 @@ const Dashboard = () => {
                             Gerar QR Code
                           </Button>
                           <p className="text-xs text-gray-500 text-center">
-                            (Opcional - pode conectar depois)
+                            (pode conectar depois)
                           </p>
                         </div>
                       )}
@@ -476,9 +467,6 @@ const Dashboard = () => {
               {showQRCode && qrCodeData && (
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg text-center">
                   <h4 className="font-semibold mb-2">Escaneie o QR Code com seu WhatsApp</h4>
-                  <p className="text-sm text-gray-600 mb-3">
-                    ⚠️ Esta conexão é <strong>opcional</strong>. Você pode fechar e usar o sistema normalmente.
-                  </p>
                   <img 
                     src={qrCodeData} 
                     alt="QR Code" 
