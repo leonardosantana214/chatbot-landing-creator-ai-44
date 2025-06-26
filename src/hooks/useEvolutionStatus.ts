@@ -24,7 +24,7 @@ export const useEvolutionStatus = (instanceName?: string) => {
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
 
-  const checkEvolutionConnection = useCallback(async (instanceName: string): Promise<{isConnected: boolean, phone?: string}> => {
+  const checkEvolutionConnection = useCallback(async (instanceName: string): Promise<{isConnected: boolean, phone?: string, state?: string}> => {
     try {
       console.log('🔍 Verificando conexão Evolution para:', instanceName);
       
@@ -38,13 +38,17 @@ export const useEvolutionStatus = (instanceName?: string) => {
 
       if (response.ok) {
         const data = await response.json();
-        const isConnected = data.state === 'open';
+        console.log('📊 Resposta da conexão:', data);
         
-        if (isConnected && data.instance?.phone) {
-          return { isConnected, phone: data.instance.phone };
+        const isConnected = data.state === 'open';
+        const phone = data.instance?.phone || null;
+        
+        if (isConnected) {
+          console.log('✅ Instância conectada detectada!', { phone, state: data.state });
+          return { isConnected, phone, state: data.state };
         }
         
-        return { isConnected };
+        return { isConnected: false, state: data.state };
       }
       
       return { isConnected: false };
@@ -74,7 +78,7 @@ export const useEvolutionStatus = (instanceName?: string) => {
         console.warn('⚠️ Erro ao atualizar perfil:', profileError);
       }
 
-      // Atualizar chatbot_configs - usando apenas campos que existem no tipo
+      // Atualizar chatbot_configs
       const { error: configError } = await supabase
         .from('chatbot_configs')
         .update({
@@ -102,7 +106,7 @@ export const useEvolutionStatus = (instanceName?: string) => {
     setIsLoading(true);
     
     try {
-      console.log('🔄 Atualizando status:', targetInstanceName);
+      console.log('🔄 Verificando status automaticamente:', targetInstanceName);
       
       // 1. Buscar dados do Supabase primeiro
       const { data: configData } = await supabase
@@ -117,16 +121,29 @@ export const useEvolutionStatus = (instanceName?: string) => {
         return;
       }
 
-      // 2. Verificar conexão na Evolution
+      // 2. Verificar conexão na Evolution API
       const evolutionStatus = await checkEvolutionConnection(targetInstanceName);
       
-      // 3. Atualizar status apenas se houve mudança
-      const currentStatus = configData.connection_status === 'connected';
-      if (currentStatus !== evolutionStatus.isConnected) {
-        await updateConnectionStatus(targetInstanceName, evolutionStatus.isConnected, evolutionStatus.phone);
+      // 3. Verificar se houve mudança no status
+      const currentlyConnected = configData.connection_status === 'connected';
+      const nowConnected = evolutionStatus.isConnected;
+      
+      // 4. Se status mudou, atualizar no Supabase
+      if (currentlyConnected !== nowConnected) {
+        console.log('🔄 Status mudou:', { antes: currentlyConnected, agora: nowConnected });
+        await updateConnectionStatus(targetInstanceName, nowConnected, evolutionStatus.phone);
+        
+        // Mostrar toast apenas quando conecta
+        if (nowConnected && evolutionStatus.phone) {
+          toast({
+            title: "🎉 WhatsApp conectado automaticamente!",
+            description: `Número: ${evolutionStatus.phone}`,
+            duration: 5000,
+          });
+        }
       }
 
-      // 4. Atualizar estado local
+      // 5. Atualizar estado local sempre
       setStatus({
         instanceName: targetInstanceName,
         instanceId: configData.evo_instance_id,
@@ -134,45 +151,37 @@ export const useEvolutionStatus = (instanceName?: string) => {
         isConnected: evolutionStatus.isConnected,
         status: evolutionStatus.isConnected ? 'connected' : 'pending',
         lastCheck: new Date(),
-        canSkipQR: true // Sempre true por padrão
+        canSkipQR: true
       });
 
-      if (evolutionStatus.isConnected && evolutionStatus.phone) {
-        toast({
-          title: "✅ WhatsApp conectado!",
-          description: `Número: ${evolutionStatus.phone}`,
-          duration: 3000,
-        });
-      }
-
     } catch (error) {
-      console.error('❌ Erro ao atualizar status:', error);
+      console.error('❌ Erro ao verificar status:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   }, [instanceName, user, isRefreshing, checkEvolutionConnection, updateConnectionStatus, toast]);
 
-  // Buscar status inicial apenas uma vez
+  // Verificação inicial
   useEffect(() => {
-    if (instanceName && user && !status && !isRefreshing) {
-      console.log('🚀 Buscando status inicial para:', instanceName);
+    if (instanceName && user && !isRefreshing) {
+      console.log('🚀 Iniciando verificação automática para:', instanceName);
       refreshStatus();
     }
-  }, [instanceName, user, status, isRefreshing]);
+  }, [instanceName, user]);
 
-  // Auto-refresh com intervalo maior
+  // Auto-refresh mais frequente para detectar conexões
   useEffect(() => {
-    if (!instanceName || !user || !status || isRefreshing) return;
+    if (!instanceName || !user || isRefreshing) return;
 
     const interval = setInterval(() => {
       if (!isRefreshing) {
         refreshStatus();
       }
-    }, 60000); // 1 minuto
+    }, 10000); // Verificar a cada 10 segundos
 
     return () => clearInterval(interval);
-  }, [instanceName, user, status, isRefreshing]);
+  }, [instanceName, user, isRefreshing, refreshStatus]);
 
   return {
     status,

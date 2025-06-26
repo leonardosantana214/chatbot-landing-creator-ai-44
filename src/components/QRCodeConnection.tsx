@@ -36,6 +36,20 @@ const QRCodeConnection = ({ instanceName, onConnectionSuccess, onSkip }: QRCodeC
 
       if (response.ok) {
         const data = await response.json();
+        console.log('📱 Resposta da conexão:', data);
+        
+        // Verificar se já está conectado
+        if (data.instance?.state === 'open') {
+          console.log('✅ Instância já conectada!');
+          setIsConnected(true);
+          toast({
+            title: "🎉 WhatsApp já conectado!",
+            description: "Sua instância já está ativa!",
+          });
+          onConnectionSuccess?.();
+          return;
+        }
+        
         if (data.base64 || data.qrcode) {
           const qrData = data.base64 || data.qrcode;
           const qrImage = qrData.startsWith('data:image') ? qrData : `data:image/png;base64,${qrData}`;
@@ -74,6 +88,7 @@ const QRCodeConnection = ({ instanceName, onConnectionSuccess, onSkip }: QRCodeC
 
       if (response.ok) {
         const data = await response.json();
+        console.log('📊 Status da verificação:', data);
         const connected = data.state === 'open';
         
         if (connected) {
@@ -92,11 +107,11 @@ const QRCodeConnection = ({ instanceName, onConnectionSuccess, onSkip }: QRCodeC
     }
   };
 
-  // Verificar conexão automaticamente a cada 5 segundos quando QR estiver visível
+  // Verificar conexão automaticamente a cada 3 segundos quando QR estiver visível
   useEffect(() => {
     if (!qrCode || isConnected) return;
 
-    const interval = setInterval(checkConnection, 5000);
+    const interval = setInterval(checkConnection, 3000);
     return () => clearInterval(interval);
   }, [qrCode, isConnected]);
 

@@ -26,20 +26,20 @@ const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess, onSkipConnectio
 
   const getStatusText = () => {
     if (!status) return 'Verificando...';
-    if (status.isConnected) return 'Conectado ao WhatsApp';
-    if (status.status === 'error') return 'Erro de conexão';
+    if (status.isConnected) return 'Conectado';
+    if (status.status === 'error') return 'Erro';
     return 'Desconectado';
   };
 
   const getStatusMessage = () => {
     if (!status) return 'Verificando status da instância...';
     if (status.isConnected && status.phone) {
-      return `WhatsApp conectado com sucesso no número ${status.phone}`;
+      return `✅ WhatsApp conectado com sucesso no número ${status.phone}`;
     }
     if (status.isConnected) {
-      return 'WhatsApp conectado com sucesso';
+      return '✅ WhatsApp conectado com sucesso';
     }
-    return 'WhatsApp não conectado. Você pode conectar agora via QR Code ou pular esta etapa.';
+    return '⚠️ WhatsApp não conectado. Conecte via QR Code ou pule esta etapa.';
   };
 
   const handleConnectClick = () => {
@@ -111,28 +111,25 @@ const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess, onSkipConnectio
               <span className="font-mono">{status.instanceName}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Status:</span>
-              <span>{status.status}</span>
+              <span className="text-gray-600">Status Evolution:</span>
+              <span className={status.isConnected ? 'text-green-600 font-semibold' : 'text-red-600'}>
+                {status.isConnected ? 'CONECTADO' : 'DESCONECTADO'}
+              </span>
             </div>
             {status.phone && (
               <div className="flex justify-between">
                 <span className="text-gray-600">Telefone:</span>
-                <span className="font-mono">{status.phone}</span>
+                <span className="font-mono text-green-600 font-semibold">{status.phone}</span>
               </div>
             )}
             <div className="flex justify-between">
               <span className="text-gray-600">Última verificação:</span>
               <span>{status.lastCheck.toLocaleTimeString()}</span>
             </div>
-            {status.canSkipQR && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">QR Code:</span>
-                <span className="text-green-600">Opcional</span>
-              </div>
-            )}
           </div>
         )}
 
+        {/* Mostrar botões apenas se não estiver conectado */}
         {status && !status.isConnected && instanceName && (
           <div className="space-y-2">
             <Button 
@@ -167,11 +164,22 @@ const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess, onSkipConnectio
           </div>
         )}
 
+        {/* Mostrar status conectado */}
         {status?.isConnected && (
-          <div className="bg-green-50 p-3 rounded-lg">
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
             <div className="flex items-center text-green-800">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              <span className="font-medium">WhatsApp Conectado e Funcionando!</span>
+              <CheckCircle className="h-5 w-5 mr-3" />
+              <div>
+                <span className="font-bold text-lg">WhatsApp Conectado! 🎉</span>
+                {status.phone && (
+                  <p className="text-sm text-green-700 mt-1">
+                    Número: <span className="font-mono font-bold">{status.phone}</span>
+                  </p>
+                )}
+                <p className="text-xs text-green-600 mt-1">
+                  Seu chatbot está pronto para receber mensagens!
+                </p>
+              </div>
             </div>
           </div>
         )}
