@@ -51,6 +51,10 @@ const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess }: WhatsAppStatu
     onConnectionSuccess?.();
   };
 
+  const handleRefreshClick = () => {
+    refreshStatus();
+  };
+
   if (showQRCode && instanceName) {
     return (
       <QRCodeConnection 
@@ -80,7 +84,7 @@ const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess }: WhatsAppStatu
             <Button
               variant="ghost"
               size="sm"
-              onClick={refreshStatus}
+              onClick={handleRefreshClick}
               disabled={isLoading}
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />

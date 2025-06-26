@@ -24,8 +24,11 @@ interface ChatbotConfig {
   service_type: string;
   tone: string;
   evo_instance_id: string | null;
+  real_instance_id: string | null;
   is_active: boolean;
   phone_number: string | null;
+  evolution_phone: string | null;
+  connection_status: string | null;
   created_at: string;
   webhook_url: string | null;
 }
@@ -430,7 +433,7 @@ const Dashboard = () => {
                       
                       {bot.connection_status !== 'connected' && bot.evo_instance_id && (
                         <Button 
-                          onClick={() => generateQRCode(bot.evo_instance_id)}
+                          onClick={() => generateQRCode(bot.evo_instance_id!)}
                           disabled={loading}
                           size="sm"
                           className="w-full bg-[#FF914C] hover:bg-[#FF7A2B]"
