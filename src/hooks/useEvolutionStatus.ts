@@ -74,17 +74,15 @@ export const useEvolutionStatus = (instanceName?: string) => {
         console.warn('⚠️ Erro ao atualizar perfil:', profileError);
       }
 
-      // Atualizar chatbot_configs
+      // Atualizar chatbot_configs - usando apenas campos que existem no tipo
       const { error: configError } = await supabase
         .from('chatbot_configs')
         .update({
           connection_status: isConnected ? 'connected' : 'pending',
-          phone_connected: phone || null,
-          qr_completed: isConnected,
+          evolution_phone: phone || null,
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', user.id)
-        .eq('instance_name', instanceName);
+        .eq('user_id', user.id);
 
       if (configError) {
         console.warn('⚠️ Erro ao atualizar config:', configError);
@@ -104,14 +102,13 @@ export const useEvolutionStatus = (instanceName?: string) => {
     setIsLoading(true);
     
     try {
-      console.log('🔄 Atualizando status (sem loop):', targetInstanceName);
+      console.log('🔄 Atualizando status:', targetInstanceName);
       
       // 1. Buscar dados do Supabase primeiro
       const { data: configData } = await supabase
         .from('chatbot_configs')
         .select('*')
         .eq('user_id', user.id)
-        .eq('instance_name', targetInstanceName)
         .single();
 
       if (!configData) {
@@ -120,7 +117,7 @@ export const useEvolutionStatus = (instanceName?: string) => {
         return;
       }
 
-      // 2. Verificar conexão na Evolution (sem loop)
+      // 2. Verificar conexão na Evolution
       const evolutionStatus = await checkEvolutionConnection(targetInstanceName);
       
       // 3. Atualizar status apenas se houve mudança
@@ -133,11 +130,11 @@ export const useEvolutionStatus = (instanceName?: string) => {
       setStatus({
         instanceName: targetInstanceName,
         instanceId: configData.evo_instance_id,
-        phone: evolutionStatus.phone || configData.phone_connected,
+        phone: evolutionStatus.phone || configData.evolution_phone,
         isConnected: evolutionStatus.isConnected,
         status: evolutionStatus.isConnected ? 'connected' : 'pending',
         lastCheck: new Date(),
-        canSkipQR: configData.can_skip_qr !== false // Default true se não definido
+        canSkipQR: true // Sempre true por padrão
       });
 
       if (evolutionStatus.isConnected && evolutionStatus.phone) {
@@ -158,21 +155,21 @@ export const useEvolutionStatus = (instanceName?: string) => {
 
   // Buscar status inicial apenas uma vez
   useEffect(() => {
-    if (instanceName && user && !status) {
+    if (instanceName && user && !status && !isRefreshing) {
       console.log('🚀 Buscando status inicial para:', instanceName);
       refreshStatus();
     }
-  }, [instanceName, user]); // Removido refreshStatus das dependências para evitar loop
+  }, [instanceName, user, status, isRefreshing]);
 
-  // Auto-refresh com intervalo maior e controle de estado
+  // Auto-refresh com intervalo maior
   useEffect(() => {
-    if (!instanceName || !user || !status) return;
+    if (!instanceName || !user || !status || isRefreshing) return;
 
     const interval = setInterval(() => {
       if (!isRefreshing) {
         refreshStatus();
       }
-    }, 60000); // Intervalo de 1 minuto para evitar loops
+    }, 60000); // 1 minuto
 
     return () => clearInterval(interval);
   }, [instanceName, user, status, isRefreshing]);

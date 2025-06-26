@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, CheckCircle, Smartphone, QrCode, Loader2, AlertCircle, Copy, Eye, EyeOff, SkipForward } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useCompleteRegistration } from '@/hooks/useCompleteRegistration';
+import QRCodeConnection from '@/components/QRCodeConnection';
 
 const WhatsAppIntegration = () => {
   const navigate = useNavigate();
@@ -391,7 +392,7 @@ const WhatsAppIntegration = () => {
               <Button 
                 onClick={() => setQrCodeImage('generate')}
                 className="w-full bg-green-600 hover:bg-green-700 text-white"
-                disabled={isLoading}
+                disabled={loading}
               >
                 <QrCode className="h-4 w-4 mr-2" />
                 Conectar WhatsApp Agora
