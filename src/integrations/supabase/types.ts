@@ -18,9 +18,12 @@ export type Database = {
           evo_token: string | null
           evolution_phone: string | null
           id: string
+          instance_name: string | null
           is_active: boolean | null
           last_status_check: string | null
+          phone_connected: string | null
           phone_number: string | null
+          qr_completed: boolean | null
           real_instance_id: string | null
           service_type: string
           tone: string
@@ -36,9 +39,12 @@ export type Database = {
           evo_token?: string | null
           evolution_phone?: string | null
           id?: string
+          instance_name?: string | null
           is_active?: boolean | null
           last_status_check?: string | null
+          phone_connected?: string | null
           phone_number?: string | null
+          qr_completed?: boolean | null
           real_instance_id?: string | null
           service_type: string
           tone: string
@@ -54,9 +60,12 @@ export type Database = {
           evo_token?: string | null
           evolution_phone?: string | null
           id?: string
+          instance_name?: string | null
           is_active?: boolean | null
           last_status_check?: string | null
+          phone_connected?: string | null
           phone_number?: string | null
+          qr_completed?: boolean | null
           real_instance_id?: string | null
           service_type?: string
           tone?: string
@@ -336,12 +345,11 @@ export type Database = {
           connection_status: string | null
           created_at: string | null
           email: string | null
-          evolution_phone: string | null
           id: string
           instance_id: string | null
           instance_name: string | null
           name: string | null
-          real_instance_id: string | null
+          qr_code_required: boolean | null
           updated_at: string | null
           whatsapp: string | null
         }
@@ -351,12 +359,11 @@ export type Database = {
           connection_status?: string | null
           created_at?: string | null
           email?: string | null
-          evolution_phone?: string | null
           id: string
           instance_id?: string | null
           instance_name?: string | null
           name?: string | null
-          real_instance_id?: string | null
+          qr_code_required?: boolean | null
           updated_at?: string | null
           whatsapp?: string | null
         }
@@ -366,12 +373,11 @@ export type Database = {
           connection_status?: string | null
           created_at?: string | null
           email?: string | null
-          evolution_phone?: string | null
           id?: string
           instance_id?: string | null
           instance_name?: string | null
           name?: string | null
-          real_instance_id?: string | null
+          qr_code_required?: boolean | null
           updated_at?: string | null
           whatsapp?: string | null
         }

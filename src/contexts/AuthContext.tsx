@@ -28,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('🔧 Configurando AuthContext...');
+    console.log('🔧 Configurando AuthContext SEM triggers automáticos...');
     
     // Configurar listener de mudanças de auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -54,32 +54,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // SIMPLIFICADO: Agora o signUp só cria a conta AUTH, sem dados extras
   const signUp = async (email: string, password: string, userData: any) => {
-    console.log('📝 Iniciando signup para:', email);
+    console.log('📝 SignUp SIMPLES para:', email);
     
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-          data: {
-            name: userData.name,
-            company: userData.company,
-            area: userData.area,
-            whatsapp: userData.whatsapp,
-            instance_id: userData.instance_id,
-            instance_name: userData.instance_name
-          }
+          emailRedirectTo: `${window.location.origin}/dashboard`
         }
       });
       
       if (error) {
-        console.error('❌ Erro no signup:', error);
+        console.error('❌ Erro no signup simples:', error);
         return { error };
       }
       
-      console.log('✅ Signup realizado com sucesso:', data);
+      console.log('✅ Signup simples realizado:', data);
       return { data, error: null };
       
     } catch (error) {
