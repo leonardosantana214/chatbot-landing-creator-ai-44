@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Bot, Users, MessageCircle, BarChart3, LogOut, Settings, Smartphone, CheckCircle, AlertCircle, Clock, Phone, Building, QrCode } from 'lucide-react';
+import { RefreshCw, Bot, Users, MessageCircle, BarChart3, LogOut, Smartphone, CheckCircle, AlertCircle, Clock, Phone, Building, QrCode } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
@@ -68,6 +67,41 @@ const Dashboard = () => {
   const [evolutionStatus, setEvolutionStatus] = useState<EvolutionStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
+
+  // Função para formatar telefone brasileiro
+  const formatPhoneBrazilian = (phone: string) => {
+    if (!phone) return '';
+    
+    // Remove todos os caracteres não numéricos
+    const numbers = phone.replace(/\D/g, '');
+    
+    // Se tem 13 dígitos (55 + DDD + número)
+    if (numbers.length === 13 && numbers.startsWith('55')) {
+      const ddd = numbers.substring(2, 4);
+      const firstPart = numbers.substring(4, 9);
+      const secondPart = numbers.substring(9, 13);
+      return `+55 (${ddd}) ${firstPart}-${secondPart}`;
+    }
+    
+    // Se tem 11 dígitos (DDD + número)
+    if (numbers.length === 11) {
+      const ddd = numbers.substring(0, 2);
+      const firstPart = numbers.substring(2, 7);
+      const secondPart = numbers.substring(7, 11);
+      return `+55 (${ddd}) ${firstPart}-${secondPart}`;
+    }
+    
+    // Se tem 10 dígitos (DDD + número sem 9)
+    if (numbers.length === 10) {
+      const ddd = numbers.substring(0, 2);
+      const firstPart = numbers.substring(2, 6);
+      const secondPart = numbers.substring(6, 10);
+      return `+55 (${ddd}) ${firstPart}-${secondPart}`;
+    }
+
+    // Retorna o número original se não conseguir formatar
+    return phone;
+  };
 
   const fetchStats = async () => {
     if (!user) return;
@@ -176,38 +210,101 @@ const Dashboard = () => {
 
   const generateQRCode = async () => {
     const activeChatbot = chatbots.find(bot => bot.is_active);
-    if (!activeChatbot?.evo_instance_id) return;
+    if (!activeChatbot?.evo_instance_id) {
+      toast({
+        title: "Erro",
+        description: "Nenhum chatbot ativo encontrado.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       setLoading(true);
       const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
       const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
       
-      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${activeChatbot.evo_instance_id}`, {
-        headers: { 'apikey': API_KEY }
+      console.log('🔄 Gerando QR Code para instância:', activeChatbot.evo_instance_id);
+      
+      // Primeiro, tentar conectar a instância
+      const connectResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/connect/${activeChatbot.evo_instance_id}`, {
+        method: 'GET',
+        headers: { 
+          'apikey': API_KEY,
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.qrcode) {
+      if (connectResponse.ok) {
+        const connectData = await connectResponse.json();
+        console.log('✅ Resposta da conexão:', connectData);
+        
+        if (connectData.base64 || connectData.qrcode) {
+          const qrCode = connectData.base64 || connectData.qrcode;
+          const formattedQR = qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`;
+          
           setEvolutionStatus(prev => ({
             ...prev!,
-            qrCode: data.qrcode.startsWith('data:') ? data.qrcode : `data:image/png;base64,${data.qrcode}`,
+            qrCode: formattedQR,
             status: 'connecting'
           }));
           setShowQRCode(true);
           
           toast({
             title: "QR Code gerado!",
-            description: "Escaneie com seu WhatsApp para reconectar.",
+            description: "Escaneie com seu WhatsApp para conectar.",
           });
+          return;
         }
       }
+
+      // Se não conseguiu obter QR Code, tentar buscar status da instância
+      const statusResponse = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances`, {
+        method: 'GET',
+        headers: { 
+          'apikey': API_KEY,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (statusResponse.ok) {
+        const instances = await statusResponse.json();
+        const instance = instances.find((inst: any) => 
+          inst.instanceName === activeChatbot.evo_instance_id || 
+          inst.instance?.instanceName === activeChatbot.evo_instance_id
+        );
+
+        if (instance && (instance.qrcode || instance.qr)) {
+          const qrCode = instance.qrcode || instance.qr;
+          const formattedQR = qrCode.startsWith('data:') ? qrCode : `data:image/png;base64,${qrCode}`;
+          
+          setEvolutionStatus(prev => ({
+            ...prev!,
+            qrCode: formattedQR,
+            status: 'connecting'
+          }));
+          setShowQRCode(true);
+          
+          toast({
+            title: "QR Code obtido!",
+            description: "Escaneie com seu WhatsApp para conectar.",
+          });
+          return;
+        }
+      }
+
+      // Se chegou até aqui, não conseguiu obter o QR Code
+      toast({
+        title: "Erro ao gerar QR Code",
+        description: "Não foi possível obter o QR Code. Tente novamente em alguns instantes.",
+        variant: "destructive",
+      });
+
     } catch (error) {
       console.error('❌ Erro ao gerar QR Code:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível gerar o QR Code.",
+        description: "Erro ao conectar com a API. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -357,7 +454,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <span className="text-sm text-gray-600">WhatsApp:</span>
-                <p className="font-semibold">{profile.whatsapp}</p>
+                <p className="font-semibold">{formatPhoneBrazilian(profile.whatsapp || '')}</p>
               </div>
             </div>
           </CardContent>
@@ -399,7 +496,7 @@ const Dashboard = () => {
                         {bot.phone_number && (
                           <p className="text-xs text-gray-500 flex items-center">
                             <Phone className="h-3 w-3 mr-1" />
-                            {bot.phone_number}
+                            {formatPhoneBrazilian(bot.phone_number)}
                           </p>
                         )}
                       </div>
@@ -439,14 +536,13 @@ const Dashboard = () => {
                     alt="QR Code" 
                     className="mx-auto mb-4 border rounded-lg max-w-xs"
                   />
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 mb-4">
                     WhatsApp → Menu → Dispositivos conectados → Conectar dispositivo
                   </p>
                   <Button 
                     onClick={() => setShowQRCode(false)}
                     variant="outline"
                     size="sm"
-                    className="mt-2"
                   >
                     Fechar QR Code
                   </Button>
@@ -589,13 +685,22 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <Button 
-                  onClick={() => navigate('/chatbot-setup')} 
-                  className="w-full justify-start bg-[#FF914C] hover:bg-[#FF7A2B] text-white"
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  {chatbots.length > 0 ? 'Configurar Chatbot' : 'Criar Primeiro Chatbot'}
-                </Button>
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Bot className="h-5 w-5 text-blue-600" />
+                    <h4 className="font-semibold text-blue-800">Configurações do Chatbot</h4>
+                  </div>
+                  <p className="text-sm text-blue-700 mb-3">
+                    Precisa fazer alterações no seu chatbot? Nossa equipe está pronta para ajudar!
+                  </p>
+                  <Button 
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => window.open('https://wa.me/5511933120908?text=Olá! Preciso de ajuda para configurar meu chatbot.', '_blank')}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Falar com Suporte
+                  </Button>
+                </div>
                 
                 <Button 
                   onClick={() => navigate('/contacts')} 
