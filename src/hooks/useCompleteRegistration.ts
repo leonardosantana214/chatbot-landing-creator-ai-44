@@ -28,6 +28,89 @@ export const useCompleteRegistration = () => {
       
       console.log('📋 IDs gerados:', { instanceName, instanceId });
 
+      // VERIFICAR SE USUÁRIO JÁ EXISTE PARA EVITAR RATE LIMITING
+      const { data: existingUser } = await supabase.auth.getUser();
+      if (existingUser?.user?.email === userData.email) {
+        console.log('✅ Usuário já existe, usando conta existente');
+        
+        // Se usuário já existe, apenas criar/atualizar perfil e config
+        const userId = existingUser.user.id;
+        
+        // Criar/atualizar perfil
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .upsert({
+            id: userId,
+            email: userData.email,
+            name: userData.name,
+            company: userData.company,
+            area: userData.area,
+            whatsapp: userData.whatsapp,
+            instance_id: instanceId,
+            instance_name: instanceName,
+            connection_status: 'pending',
+            qr_code_required: false,
+            updated_at: new Date().toISOString()
+          });
+
+        if (profileError) {
+          console.error('❌ Erro ao atualizar perfil:', profileError);
+          throw new Error(`Erro ao atualizar perfil: ${profileError.message}`);
+        }
+
+        // Criar configuração do chatbot
+        const { data: configData, error: configError } = await supabase
+          .from('chatbot_configs')
+          .upsert({
+            user_id: userId,
+            bot_name: chatbotConfig.nome_da_IA || 'Assistente IA',
+            service_type: chatbotConfig.tipo_de_servico || 'Atendimento Geral',
+            tone: chatbotConfig.tom || chatbotConfig.personalidade || 'Profissional e amigável',
+            evo_instance_id: instanceName,
+            real_instance_id: instanceId,
+            instance_name: instanceName,
+            phone_number: userData.whatsapp,
+            connection_status: 'pending',
+            phone_connected: null,
+            qr_completed: false,
+            is_active: true,
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (configError) {
+          console.error('❌ Erro ao criar config do chatbot:', configError);
+          throw new Error(`Erro ao configurar chatbot: ${configError.message}`);
+        }
+
+        console.log('✅ Registro completo atualizado com sucesso!');
+        
+        toast({
+          title: "✅ Configuração atualizada!",
+          description: `Bem-vindo de volta, ${userData.name}!`,
+        });
+        
+        return {
+          success: true,
+          user: existingUser.user,
+          instanceData: {
+            instanceName,
+            instanceId,
+            chatbotConfig: configData
+          }
+        };
+      }
+
+      // LIMPAR ESTADO AUTH ANTERIOR PARA EVITAR CONFLITOS
+      try {
+        await supabase.auth.signOut();
+        // Aguardar um pouco para limpar estado
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (err) {
+        console.log('Sem sessão anterior para limpar');
+      }
+
       // ETAPA 1: Criar conta no Supabase Auth com TODOS os dados necessários
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
@@ -47,6 +130,96 @@ export const useCompleteRegistration = () => {
 
       if (authError) {
         console.error('❌ Erro na criação da conta AUTH:', authError);
+        
+        // Se for erro de rate limiting, tentar usar o usuário existente
+        if (authError.message.includes('For security purposes')) {
+          console.log('🔄 Rate limiting detectado, tentando usar conta existente...');
+          
+          // Tentar fazer login
+          const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+            email: userData.email,
+            password: userData.password
+          });
+          
+          if (loginError) {
+            throw new Error(`Erro de rate limiting. Aguarde alguns segundos e tente novamente.`);
+          }
+          
+          if (loginData.user) {
+            console.log('✅ Login realizado com sucesso');
+            
+            // Continuar com criação do perfil e config
+            const userId = loginData.user.id;
+            
+            // Criar perfil
+            const { error: profileError } = await supabase
+              .from('user_profiles')
+              .upsert({
+                id: userId,
+                email: userData.email,
+                name: userData.name,
+                company: userData.company,
+                area: userData.area,
+                whatsapp: userData.whatsapp,
+                instance_id: instanceId,
+                instance_name: instanceName,
+                connection_status: 'pending',
+                qr_code_required: false,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+
+            if (profileError) {
+              console.error('❌ Erro ao criar perfil:', profileError);
+              throw new Error(`Erro ao criar perfil: ${profileError.message}`);
+            }
+
+            // Criar configuração do chatbot
+            const { data: configData, error: configError } = await supabase
+              .from('chatbot_configs')
+              .insert({
+                user_id: userId,
+                bot_name: chatbotConfig.nome_da_IA || 'Assistente IA',
+                service_type: chatbotConfig.tipo_de_servico || 'Atendimento Geral',
+                tone: chatbotConfig.tom || chatbotConfig.personalidade || 'Profissional e amigável',
+                evo_instance_id: instanceName,
+                real_instance_id: instanceId,
+                instance_name: instanceName,
+                phone_number: userData.whatsapp,
+                connection_status: 'pending',
+                phone_connected: null,
+                qr_completed: false,
+                is_active: true,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .select()
+              .single();
+
+            if (configError) {
+              console.error('❌ Erro ao criar config do chatbot:', configError);
+              throw new Error(`Erro ao configurar chatbot: ${configError.message}`);
+            }
+
+            console.log('✅ Registro completo realizado após login!');
+            
+            toast({
+              title: "✅ Conta configurada com sucesso!",
+              description: `Bem-vindo, ${userData.name}!`,
+            });
+            
+            return {
+              success: true,
+              user: loginData.user,
+              instanceData: {
+                instanceName,
+                instanceId,
+                chatbotConfig: configData
+              }
+            };
+          }
+        }
+        
         throw new Error(`Erro ao criar conta: ${authError.message}`);
       }
 
@@ -77,8 +250,6 @@ export const useCompleteRegistration = () => {
 
       if (profileError) {
         console.error('❌ Erro ao criar perfil COMPLETO:', profileError);
-        // Se der erro no perfil, remover o usuário do auth para evitar conflitos
-        await supabase.auth.admin.deleteUser(authData.user.id);
         throw new Error(`Erro ao criar perfil completo: ${profileError.message}`);
       }
 
@@ -90,9 +261,9 @@ export const useCompleteRegistration = () => {
         .from('chatbot_configs')
         .insert({
           user_id: authData.user.id,
-          bot_name: chatbotConfig.nome_da_IA,
-          service_type: chatbotConfig.tipo_de_servico,
-          tone: chatbotConfig.tom,
+          bot_name: chatbotConfig.nome_da_IA || 'Assistente IA',
+          service_type: chatbotConfig.tipo_de_servico || 'Atendimento Geral',
+          tone: chatbotConfig.tom || chatbotConfig.personalidade || 'Profissional e amigável',
           evo_instance_id: instanceName,
           real_instance_id: instanceId,
           instance_name: instanceName,
@@ -109,32 +280,10 @@ export const useCompleteRegistration = () => {
 
       if (configError) {
         console.error('❌ Erro ao criar config COMPLETA do chatbot:', configError);
-        // Se der erro na config, remover tudo para evitar dados órfãos
-        await supabase.from('user_profiles').delete().eq('id', authData.user.id);
-        await supabase.auth.admin.deleteUser(authData.user.id);
         throw new Error(`Erro ao configurar chatbot completo: ${configError.message}`);
       }
 
       console.log('✅ Configuração COMPLETA do chatbot criada:', configData.id);
-
-      // ETAPA 4: Atualizar metadados do auth com o chatbot_id
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: {
-          name: userData.name,
-          company: userData.company,
-          area: userData.area,
-          whatsapp: userData.whatsapp,
-          instance_id: instanceId,
-          instance_name: instanceName,
-          chatbot_id: configData.id
-        }
-      });
-
-      if (updateError) {
-        console.warn('⚠️ Erro ao atualizar metadados (não crítico):', updateError);
-      } else {
-        console.log('✅ Metadados atualizados no auth');
-      }
 
       console.log('🎉 REGISTRO COMPLETO FINALIZADO COM SUCESSO! Todos os dados salvos de uma vez.');
       
