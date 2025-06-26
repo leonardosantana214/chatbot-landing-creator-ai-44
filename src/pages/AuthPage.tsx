@@ -43,7 +43,7 @@ const AuthPage = () => {
           setShowEmailVerification(true);
           toast({
             title: "📧 Email não verificado",
-            description: "Você precisa verificar seu email antes de fazer login.",
+            description: "Você precisa confirmar seu email antes de fazer login.",
           });
         } else {
           toast({
@@ -114,11 +114,11 @@ const AuthPage = () => {
         </div>
 
         <Card className="shadow-xl">
-          <CardHeader className="text-center bg-black text-white rounded-t-lg">
+          <CardHeader className="text-center bg-[#FF914C] text-white rounded-t-lg">
             <CardTitle className="text-2xl font-bold">
               Entrar na Techcorps
             </CardTitle>
-            <p className="text-gray-300">
+            <p className="text-orange-100">
               Acesse seu painel de controle
             </p>
           </CardHeader>
@@ -151,7 +151,7 @@ const AuthPage = () => {
 
               <Button 
                 type="submit" 
-                className="w-full bg-black hover:bg-gray-800 text-white py-3"
+                className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white py-3"
                 disabled={loading}
               >
                 {loading ? (
@@ -166,15 +166,15 @@ const AuthPage = () => {
             </form>
 
             <div className="mt-6 text-center">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-blue-800 mb-2">Ainda não tem uma conta?</h4>
-                <p className="text-sm text-blue-700 mb-3">
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <h4 className="font-semibold text-orange-800 mb-2">Ainda não tem uma conta?</h4>
+                <p className="text-sm text-orange-700 mb-3">
                   Para criar uma conta, você precisa fazer o pagamento primeiro na nossa página inicial.
                 </p>
                 <Button
                   variant="outline"
                   onClick={() => navigate('/payment')}
-                  className="w-full"
+                  className="w-full border-[#FF914C] text-[#FF914C] hover:bg-[#FF914C] hover:text-white"
                 >
                   Ir para Pagamento
                 </Button>
@@ -182,10 +182,10 @@ const AuthPage = () => {
             </div>
 
             <div className="mt-4 text-center">
-              <div className="bg-yellow-50 p-3 rounded border">
+              <div className="bg-yellow-50 p-3 rounded border border-yellow-300">
                 <p className="text-xs text-yellow-700">
                   <strong>Importante:</strong> Se você acabou de criar sua conta, 
-                  verifique seu email e confirme o cadastro antes de fazer login.
+                  confirme o cadastro clicando no link enviado para seu email.
                 </p>
               </div>
             </div>

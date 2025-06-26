@@ -1,8 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,8 +13,6 @@ interface EmailVerificationProps {
 }
 
 const EmailVerification = ({ email, onVerificationSuccess, onBack }: EmailVerificationProps) => {
-  const [verificationCode, setVerificationCode] = useState('');
-  const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const { toast } = useToast();
@@ -28,61 +24,28 @@ const EmailVerification = ({ email, onVerificationSuccess, onBack }: EmailVerifi
     }
   }, [resendCooldown]);
 
-  const handleVerifyEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!verificationCode || verificationCode.length !== 6) {
-      toast({
-        title: "Código inválido",
-        description: "Digite um código de 6 dígitos.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      console.log('🔐 Verificando email com código:', verificationCode);
-      
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: verificationCode,
-        type: 'email'
-      });
-
-      if (error) {
-        console.error('❌ Erro na verificação:', error);
-        toast({
-          title: "❌ Código inválido",
-          description: "Verifique o código e tente novamente.",
-          variant: "destructive",
-        });
-      } else {
-        console.log('✅ Email verificado com sucesso:', data);
-        toast({
-          title: "✅ Email verificado!",
-          description: "Sua conta foi ativada com sucesso.",
-        });
+  // Verificar automaticamente se o usuário já confirmou o email
+  useEffect(() => {
+    const checkEmailConfirmation = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email_confirmed_at) {
+        console.log('✅ Email já confirmado!');
         onVerificationSuccess();
       }
-    } catch (error) {
-      console.error('💥 Erro geral:', error);
-      toast({
-        title: "❌ Erro",
-        description: "Ocorreu um erro inesperado.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  const handleResendCode = async () => {
+    // Verificar a cada 3 segundos se o email foi confirmado
+    const interval = setInterval(checkEmailConfirmation, 3000);
+    
+    // Limpar o interval quando o componente for desmontado
+    return () => clearInterval(interval);
+  }, [onVerificationSuccess]);
+
+  const handleResendEmail = async () => {
     setResendLoading(true);
     
     try {
-      console.log('📧 Reenviando código para:', email);
+      console.log('📧 Reenviando email de confirmação para:', email);
       
       const { error } = await supabase.auth.resend({
         type: 'signup',
@@ -100,9 +63,9 @@ const EmailVerification = ({ email, onVerificationSuccess, onBack }: EmailVerifi
           variant: "destructive",
         });
       } else {
-        console.log('✅ Código reenviado');
+        console.log('✅ Email reenviado');
         toast({
-          title: "📧 Código reenviado",
+          title: "📧 Email reenviado",
           description: "Verifique sua caixa de entrada.",
         });
         setResendCooldown(60);
@@ -121,69 +84,52 @@ const EmailVerification = ({ email, onVerificationSuccess, onBack }: EmailVerifi
 
   return (
     <Card className="shadow-xl">
-      <CardHeader className="text-center bg-blue-600 text-white rounded-t-lg">
+      <CardHeader className="text-center bg-[#FF914C] text-white rounded-t-lg">
         <div className="flex items-center justify-center mb-2">
           <Mail className="h-8 w-8" />
         </div>
         <CardTitle className="text-xl font-bold">
-          Verificar Email
+          Confirme seu Email
         </CardTitle>
-        <p className="text-blue-100 text-sm">
-          Enviamos um código de verificação para {email}
+        <p className="text-orange-100 text-sm">
+          Enviamos um link de confirmação para {email}
         </p>
       </CardHeader>
 
       <CardContent className="p-6">
-        <form onSubmit={handleVerifyEmail} className="space-y-6">
-          <div className="text-center">
-            <div className="bg-blue-50 p-4 rounded-lg mb-4">
-              <CheckCircle className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-              <p className="text-sm text-blue-800">
-                Digite o código de 6 dígitos que você recebeu no seu email
+        <div className="text-center">
+          <div className="bg-orange-50 p-6 rounded-lg mb-6">
+            <CheckCircle className="h-12 w-12 text-[#FF914C] mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">
+              Verifique seu email
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Clique no link que enviamos para <strong>{email}</strong> para confirmar sua conta.
+            </p>
+            <div className="bg-yellow-100 p-3 rounded border border-yellow-300">
+              <p className="text-xs text-yellow-700">
+                <strong>Dica:</strong> Verifique também a pasta de spam do seu email.
               </p>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="code">Código de Verificação</Label>
-            <Input
-              id="code"
-              type="text"
-              placeholder="000000"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              className="text-center text-lg tracking-widest"
-              maxLength={6}
-              required
-            />
+          <div className="bg-blue-50 p-4 rounded-lg mb-6">
+            <p className="text-sm text-blue-800">
+              🔄 Verificando automaticamente... Assim que você clicar no link do email, será redirecionado automaticamente.
+            </p>
           </div>
+        </div>
 
-          <Button 
-            type="submit" 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
-            disabled={loading || verificationCode.length !== 6}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Verificando...
-              </>
-            ) : (
-              'Verificar Código'
-            )}
-          </Button>
-        </form>
-
-        <div className="mt-6 space-y-4">
+        <div className="space-y-4">
           <div className="text-center">
             <p className="text-sm text-gray-600 mb-3">
-              Não recebeu o código?
+              Não recebeu o email?
             </p>
             <Button
               variant="outline"
-              onClick={handleResendCode}
+              onClick={handleResendEmail}
               disabled={resendLoading || resendCooldown > 0}
-              className="w-full"
+              className="w-full border-[#FF914C] text-[#FF914C] hover:bg-[#FF914C] hover:text-white"
             >
               {resendLoading ? (
                 <>
@@ -193,7 +139,7 @@ const EmailVerification = ({ email, onVerificationSuccess, onBack }: EmailVerifi
               ) : resendCooldown > 0 ? (
                 `Aguarde ${resendCooldown}s para reenviar`
               ) : (
-                'Reenviar Código'
+                'Reenviar Email'
               )}
             </Button>
           </div>
@@ -206,14 +152,6 @@ const EmailVerification = ({ email, onVerificationSuccess, onBack }: EmailVerifi
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar ao Login
           </Button>
-        </div>
-
-        <div className="mt-4 text-center">
-          <div className="bg-yellow-50 p-3 rounded border">
-            <p className="text-xs text-yellow-700">
-              <strong>Dica:</strong> Verifique também a pasta de spam do seu email.
-            </p>
-          </div>
         </div>
       </CardContent>
     </Card>
