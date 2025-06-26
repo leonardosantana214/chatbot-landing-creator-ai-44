@@ -18,6 +18,7 @@ export type Database = {
           evo_token: string | null
           evolution_phone: string | null
           id: string
+          instance_id_captured: string | null
           instance_name: string | null
           is_active: boolean | null
           last_status_check: string | null
@@ -39,6 +40,7 @@ export type Database = {
           evo_token?: string | null
           evolution_phone?: string | null
           id?: string
+          instance_id_captured?: string | null
           instance_name?: string | null
           is_active?: boolean | null
           last_status_check?: string | null
@@ -60,6 +62,7 @@ export type Database = {
           evo_token?: string | null
           evolution_phone?: string | null
           id?: string
+          instance_id_captured?: string | null
           instance_name?: string | null
           is_active?: boolean | null
           last_status_check?: string | null

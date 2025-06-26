@@ -32,7 +32,7 @@ interface InstanceStatus {
   instanceName: string;
   isConnected: boolean;
   phone: string | null;
-  lastCheck: Date;
+  lastCheck: Date | null;
   isLoading: boolean;
 }
 
@@ -138,7 +138,14 @@ const WhatsAppStatusSection = ({ chatbots, onRefresh, loading }: WhatsAppStatusS
   const refreshInstanceStatus = async (instanceName: string) => {
     setInstanceStatuses(prev => ({
       ...prev,
-      [instanceName]: { ...prev[instanceName], isLoading: true }
+      [instanceName]: { 
+        ...prev[instanceName], 
+        instanceName,
+        isConnected: false,
+        phone: null,
+        lastCheck: null,
+        isLoading: true 
+      }
     }));
 
     try {
@@ -320,7 +327,7 @@ const WhatsAppStatusSection = ({ chatbots, onRefresh, loading }: WhatsAppStatusS
                     {instanceName && (
                       <div className="text-xs text-gray-400 mt-1">
                         <p className="font-mono">Instância: {instanceName}</p>
-                        {status && (
+                        {status && status.lastCheck && (
                           <p className="text-xs">
                             Verificado: {status.lastCheck.toLocaleTimeString()}
                           </p>
