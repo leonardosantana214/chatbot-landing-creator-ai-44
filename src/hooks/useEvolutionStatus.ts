@@ -1,16 +1,17 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface EvolutionStatusData {
   instanceName: string;
-  realInstanceId: string | null;
+  instanceId: string | null;
   phone: string | null;
   isConnected: boolean;
   status: string;
   lastCheck: Date;
+  canSkipQR: boolean;
 }
 
 export const useEvolutionStatus = (instanceName?: string) => {
@@ -18,79 +19,15 @@ export const useEvolutionStatus = (instanceName?: string) => {
   const { toast } = useToast();
   const [status, setStatus] = useState<EvolutionStatusData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const API_KEY = '09d18f5a0aa248bebdb35893efeb170e';
   const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
 
-  const fetchRealInstanceData = async (instanceName: string): Promise<{instanceId: string, phone: string} | null> => {
+  const checkEvolutionConnection = useCallback(async (instanceName: string): Promise<{isConnected: boolean, phone?: string}> => {
     try {
-      console.log('🔍 Buscando dados REAIS da instância:', instanceName);
+      console.log('🔍 Verificando conexão Evolution para:', instanceName);
       
-      // Usar o endpoint fetchInstances que retorna dados corretos
-      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/fetchInstances?instanceName=${instanceName}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': API_KEY,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('📡 Dados RAW da Evolution:', data);
-        
-        let instanceData: any;
-        if (Array.isArray(data) && data.length > 0) {
-          instanceData = data[0];
-        } else {
-          instanceData = data;
-        }
-        
-        // Extrair o Instance ID REAL - diferentes possibilidades
-        const realInstanceId = instanceData.instance?.instanceId || 
-                              instanceData.instanceId || 
-                              instanceData.instance?.id ||
-                              instanceData.id ||
-                              instanceData.key ||
-                              null;
-        
-        // Extrair telefone
-        const phone = instanceData.instance?.phone || 
-                     instanceData.phone || 
-                     instanceData.instance?.number || 
-                     instanceData.number ||
-                     instanceData.phoneNumber ||
-                     '';
-        
-        const cleanPhone = phone.replace(/\D/g, '');
-        
-        console.log('✅ Instance ID REAL encontrado:', realInstanceId);
-        console.log('✅ Telefone encontrado:', cleanPhone);
-        
-        if (realInstanceId && realInstanceId !== instanceName) {
-          toast({
-            title: "🎯 Instance ID Real capturado!",
-            description: `ID: ${realInstanceId} | Tel: ${cleanPhone}`,
-            duration: 8000,
-          });
-        }
-        
-        return {
-          instanceId: realInstanceId || instanceName,
-          phone: cleanPhone
-        };
-      } else {
-        console.error('❌ Erro na API Evolution:', response.status);
-        return null;
-      }
-    } catch (error) {
-      console.error('❌ Erro ao buscar dados reais:', error);
-      return null;
-    }
-  };
-
-  const checkConnectionStatus = async (instanceName: string): Promise<boolean> => {
-    try {
       const response = await fetch(`${EVOLUTION_BASE_URL}/instance/connectionState/${instanceName}`, {
         method: 'GET',
         headers: {
@@ -101,169 +38,152 @@ export const useEvolutionStatus = (instanceName?: string) => {
 
       if (response.ok) {
         const data = await response.json();
-        return data.state === 'open';
+        const isConnected = data.state === 'open';
+        
+        if (isConnected && data.instance?.phone) {
+          return { isConnected, phone: data.instance.phone };
+        }
+        
+        return { isConnected };
       }
-      return false;
+      
+      return { isConnected: false };
     } catch (error) {
-      console.error('❌ Erro ao verificar status:', error);
-      return false;
+      console.warn('⚠️ Erro ao verificar conexão Evolution:', error);
+      return { isConnected: false };
     }
-  };
+  }, []);
 
-  const saveRealDataToSupabase = async (instanceName: string, realInstanceId: string, phone: string, isConnected: boolean) => {
+  const updateConnectionStatus = useCallback(async (instanceName: string, isConnected: boolean, phone?: string) => {
     if (!user) return;
 
     try {
-      console.log('💾 Salvando dados REAIS no Supabase:', { instanceName, realInstanceId, phone, isConnected });
+      console.log('💾 Atualizando status de conexão:', { instanceName, isConnected, phone });
       
       // Atualizar user_profiles
       const { error: profileError } = await supabase
         .from('user_profiles')
         .update({
-          instance_id: instanceName,
-          real_instance_id: realInstanceId,
-          evolution_phone: phone,
-          connection_status: isConnected ? 'connected' : 'disconnected',
+          connection_status: isConnected ? 'connected' : 'pending',
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .eq('instance_name', instanceName);
 
       if (profileError) {
-        console.error('❌ Erro ao atualizar perfil:', profileError);
+        console.warn('⚠️ Erro ao atualizar perfil:', profileError);
       }
 
-      // Atualizar ou criar chatbot_configs
-      const { data: existingConfig } = await supabase
+      // Atualizar chatbot_configs
+      const { error: configError } = await supabase
         .from('chatbot_configs')
-        .select('*')
+        .update({
+          connection_status: isConnected ? 'connected' : 'pending',
+          phone_connected: phone || null,
+          qr_completed: isConnected,
+          updated_at: new Date().toISOString()
+        })
         .eq('user_id', user.id)
-        .eq('evo_instance_id', instanceName)
-        .single();
+        .eq('instance_name', instanceName);
 
-      if (existingConfig) {
-        const { error: configError } = await supabase
-          .from('chatbot_configs')
-          .update({
-            real_instance_id: realInstanceId,
-            evolution_phone: phone,
-            phone_number: phone,
-            connection_status: isConnected ? 'connected' : 'disconnected',
-            last_status_check: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingConfig.id);
-
-        if (configError) {
-          console.error('❌ Erro ao atualizar config:', configError);
-        }
-      } else {
-        const { error: insertError } = await supabase
-          .from('chatbot_configs')
-          .insert({
-            user_id: user.id,
-            evo_instance_id: instanceName,
-            real_instance_id: realInstanceId,
-            evolution_phone: phone,
-            phone_number: phone,
-            bot_name: `Bot ${instanceName}`,
-            service_type: 'WhatsApp',
-            tone: 'Profissional',
-            is_active: true,
-            connection_status: isConnected ? 'connected' : 'disconnected',
-            last_status_check: new Date().toISOString(),
-            webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
-          });
-
-        if (insertError) {
-          console.error('❌ Erro ao criar config:', insertError);
-        }
+      if (configError) {
+        console.warn('⚠️ Erro ao atualizar config:', configError);
       }
 
-      console.log('✅ Dados REAIS salvos no Supabase com sucesso!');
+      console.log('✅ Status atualizado no Supabase');
     } catch (error) {
-      console.error('💥 Erro ao salvar dados:', error);
+      console.error('💥 Erro ao atualizar status:', error);
     }
-  };
+  }, [user]);
 
-  const refreshStatus = async (forceInstanceName?: string) => {
+  const refreshStatus = useCallback(async (forceInstanceName?: string) => {
     const targetInstanceName = forceInstanceName || instanceName;
-    if (!targetInstanceName || !user) return;
+    if (!targetInstanceName || !user || isRefreshing) return;
 
+    setIsRefreshing(true);
     setIsLoading(true);
     
     try {
-      console.log('🔄 Atualizando status da instância:', targetInstanceName);
+      console.log('🔄 Atualizando status (sem loop):', targetInstanceName);
       
-      // 1. Buscar dados reais da Evolution
-      const realData = await fetchRealInstanceData(targetInstanceName);
-      
-      if (realData) {
-        // 2. Verificar status de conexão
-        const isConnected = await checkConnectionStatus(targetInstanceName);
-        
-        // 3. Salvar dados reais no Supabase
-        await saveRealDataToSupabase(targetInstanceName, realData.instanceId, realData.phone, isConnected);
-        
-        // 4. Atualizar estado local
-        setStatus({
-          instanceName: targetInstanceName,
-          realInstanceId: realData.instanceId,
-          phone: realData.phone,
-          isConnected,
-          status: isConnected ? 'connected' : 'disconnected',
-          lastCheck: new Date()
-        });
-        
-        console.log('✅ Status atualizado com dados REAIS:', {
-          instanceName: targetInstanceName,
-          realInstanceId: realData.instanceId,
-          phone: realData.phone,
-          isConnected
-        });
-      } else {
-        // Se não conseguiu dados da Evolution, buscar do Supabase
-        const { data: configData } = await supabase
-          .from('chatbot_configs')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('evo_instance_id', targetInstanceName)
-          .single();
+      // 1. Buscar dados do Supabase primeiro
+      const { data: configData } = await supabase
+        .from('chatbot_configs')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('instance_name', targetInstanceName)
+        .single();
 
-        if (configData) {
-          setStatus({
-            instanceName: targetInstanceName,
-            realInstanceId: configData.real_instance_id,
-            phone: configData.evolution_phone,
-            isConnected: configData.connection_status === 'connected',
-            status: configData.connection_status || 'disconnected',
-            lastCheck: new Date()
-          });
-        }
+      if (!configData) {
+        console.log('❌ Configuração não encontrada para:', targetInstanceName);
+        setStatus(null);
+        return;
       }
+
+      // 2. Verificar conexão na Evolution (sem loop)
+      const evolutionStatus = await checkEvolutionConnection(targetInstanceName);
+      
+      // 3. Atualizar status apenas se houve mudança
+      const currentStatus = configData.connection_status === 'connected';
+      if (currentStatus !== evolutionStatus.isConnected) {
+        await updateConnectionStatus(targetInstanceName, evolutionStatus.isConnected, evolutionStatus.phone);
+      }
+
+      // 4. Atualizar estado local
+      setStatus({
+        instanceName: targetInstanceName,
+        instanceId: configData.evo_instance_id,
+        phone: evolutionStatus.phone || configData.phone_connected,
+        isConnected: evolutionStatus.isConnected,
+        status: evolutionStatus.isConnected ? 'connected' : 'pending',
+        lastCheck: new Date(),
+        canSkipQR: configData.can_skip_qr !== false // Default true se não definido
+      });
+
+      if (evolutionStatus.isConnected && evolutionStatus.phone) {
+        toast({
+          title: "✅ WhatsApp conectado!",
+          description: `Número: ${evolutionStatus.phone}`,
+          duration: 3000,
+        });
+      }
+
     } catch (error) {
       console.error('❌ Erro ao atualizar status:', error);
-      toast({
-        title: "Erro ao verificar status",
-        description: "Não foi possível verificar o status da instância",
-        variant: "destructive",
-      });
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  };
+  }, [instanceName, user, isRefreshing, checkEvolutionConnection, updateConnectionStatus, toast]);
 
-  // Auto-refresh a cada 30 segundos
+  // Buscar status inicial apenas uma vez
   useEffect(() => {
-    if (instanceName) {
+    if (instanceName && user && !status) {
+      console.log('🚀 Buscando status inicial para:', instanceName);
       refreshStatus();
-      const interval = setInterval(() => refreshStatus(), 30000);
-      return () => clearInterval(interval);
     }
-  }, [instanceName, user]);
+  }, [instanceName, user]); // Removido refreshStatus das dependências para evitar loop
+
+  // Auto-refresh com intervalo maior e controle de estado
+  useEffect(() => {
+    if (!instanceName || !user || !status) return;
+
+    const interval = setInterval(() => {
+      if (!isRefreshing) {
+        refreshStatus();
+      }
+    }, 60000); // Intervalo de 1 minuto para evitar loops
+
+    return () => clearInterval(interval);
+  }, [instanceName, user, status, isRefreshing]);
 
   return {
     status,
     isLoading,
-    refreshStatus
+    refreshStatus: () => {
+      if (!isRefreshing) {
+        refreshStatus();
+      }
+    }
   };
 };

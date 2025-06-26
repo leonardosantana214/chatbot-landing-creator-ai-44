@@ -1,9 +1,8 @@
 
 import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEvolutionConnection } from './useEvolutionConnection';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface UserRegistrationData {
   name: string;
@@ -14,7 +13,7 @@ interface UserRegistrationData {
   whatsapp: string;
 }
 
-interface ChatbotConfigData {
+interface ChatbotConfig {
   nome_da_IA: string;
   empresa: string;
   nicho: string;
@@ -27,93 +26,164 @@ interface ChatbotConfigData {
   nome_instancia: string;
 }
 
-export const useCompleteRegistration = () => {
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-  const { connectInstance } = useEvolutionConnection();
+interface RegistrationResult {
+  success: boolean;
+  instanceData?: {
+    instanceName: string;
+    instanceId: string;
+    userId: string;
+  };
+  error?: string;
+}
 
-  const clearAllData = async () => {
+export const useCompleteRegistration = () => {
+  const { signUp } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  const generateInstanceData = (company: string): { instanceId: string; instanceName: string } => {
+    const timestamp = Date.now();
+    const cleanCompany = company.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const instanceName = `bot_${cleanCompany}_${timestamp}`;
+    const instanceId = `inst_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    return { instanceId, instanceName };
+  };
+
+  const createEvolutionInstance = async (instanceName: string): Promise<boolean> => {
     try {
-      console.log('🧹 Limpando TODOS os dados anteriores...');
-      await supabase.auth.signOut();
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('✅ Limpeza completa realizada');
+      const API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '09d18f5a0aa248bebdb35893efeb170e';
+      const EVOLUTION_BASE_URL = 'https://leoevo.techcorps.com.br';
+      
+      console.log('🚀 Criando instância na Evolution API:', instanceName);
+      
+      const response = await fetch(`${EVOLUTION_BASE_URL}/instance/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': API_KEY
+        },
+        body: JSON.stringify({
+          instanceName: instanceName,
+          qrcode: true,
+          integration: 'WHATSAPP-BAILEYS',
+          webhookUrl: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`,
+          webhookByEvents: false,
+          webhookBase64: false,
+          rejectCall: false,
+          msgRetryCount: 3,
+          markMessagesRead: false,
+          alwaysOnline: false,
+          readReceipts: false,
+          readStatus: false
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Instância criada na Evolution:', data);
+        return true;
+      } else {
+        console.warn('⚠️ Erro ao criar instância na Evolution:', response.status);
+        return false; // Não falhar por causa disso
+      }
     } catch (error) {
-      console.error('⚠️ Erro na limpeza:', error);
+      console.warn('⚠️ Erro na Evolution API (não crítico):', error);
+      return false; // Não falhar por causa disso
+    }
+  };
+
+  const saveChatbotConfig = async (userId: string, instanceName: string, instanceId: string, config: ChatbotConfig): Promise<boolean> => {
+    try {
+      console.log('💾 Salvando configuração do chatbot...');
+      
+      const { error } = await supabase
+        .from('chatbot_configs')
+        .insert({
+          user_id: userId,
+          evo_instance_id: instanceName,
+          instance_name: instanceName,
+          bot_name: config.nome_da_IA,
+          company_name: config.empresa,
+          service_type: config.nicho,
+          tone: config.personalidade,
+          identity: config.identidade,
+          objective: config.objetivo,
+          rules: config.regras,
+          flow: config.fluxo,
+          features: config.funcionalidades,
+          webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`,
+          is_active: true,
+          connection_status: 'pending',
+          can_skip_qr: true, // Permitir pular QR Code
+          qr_completed: false
+        });
+
+      if (error) {
+        console.error('❌ Erro ao salvar config do chatbot:', error);
+        return false;
+      }
+
+      console.log('✅ Configuração do chatbot salva com sucesso');
+      return true;
+    } catch (error) {
+      console.error('💥 Erro ao salvar configuração:', error);
+      return false;
     }
   };
 
   const registerUserComplete = async (
-    userData: UserRegistrationData,
-    chatbotConfig: ChatbotConfigData
-  ): Promise<{ success: boolean; instanceData?: any }> => {
+    userData: UserRegistrationData, 
+    chatbotConfig: ChatbotConfig
+  ): Promise<RegistrationResult> => {
     setLoading(true);
     
     try {
-      console.log('🚀 Iniciando processo COMPLETO de registro...');
+      console.log('🔄 Iniciando registro completo do usuário...');
       
-      await clearAllData();
-      
-      // 1. Criar instância Evolution PRIMEIRO
-      console.log('📡 Criando instância Evolution...');
-      const instanceData = await connectInstance(chatbotConfig.nome_instancia, chatbotConfig);
-      
-      if (!instanceData) {
-        throw new Error('Falha ao criar instância no Evolution API');
-      }
+      // 1. Gerar dados da instância
+      const { instanceId, instanceName } = generateInstanceData(userData.company);
+      console.log('📋 Dados da instância gerados:', { instanceId, instanceName });
 
-      console.log('✅ Instância Evolution criada:', instanceData.instanceId);
-
-      // 2. Criar usuário no Supabase Auth SEM confirmação de email
-      console.log('👤 Criando usuário no Supabase Auth...');
-      
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-        options: {
-          emailRedirectTo: undefined, // Remove confirmação por email
-          data: {
-            name: userData.name,
-            company: userData.company,
-            area: userData.area,
-            whatsapp: userData.whatsapp,
-            instance_id: instanceData.instanceId,
-            instance_name: chatbotConfig.nome_instancia,
-            email_confirm: true // Forçar confirmação automática
-          }
-        }
+      // 2. Criar usuário no Supabase Auth com todos os dados
+      console.log('👤 Criando usuário no Supabase...');
+      const { data: authData, error: authError } = await signUp(userData.email, userData.password, {
+        name: userData.name,
+        company: userData.company,
+        area: userData.area,
+        whatsapp: userData.whatsapp,
+        instance_id: instanceId,
+        instance_name: instanceName,
+        connection_status: 'pending',
+        qr_code_required: false // QR Code não é obrigatório
       });
 
-      if (signUpError) {
-        console.error('❌ Erro ao criar usuário:', signUpError);
-        throw new Error(`Erro ao criar usuário: ${signUpError.message}`);
+      if (authError) {
+        console.error('❌ Erro ao criar usuário:', authError);
+        return { success: false, error: authError.message };
       }
 
       if (!authData.user) {
-        throw new Error('Usuário não foi criado corretamente');
+        return { success: false, error: 'Usuário não foi criado corretamente' };
       }
 
       const userId = authData.user.id;
-      console.log('✅ Usuário criado no Auth:', userId);
+      console.log('✅ Usuário criado com ID:', userId);
 
-      // 3. Aguardar criação automática do perfil
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 3. Aguardar um pouco para o trigger criar o perfil
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // 4. Verificar se perfil foi criado automaticamente pelo trigger
-      const { data: existingProfile, error: profileCheckError } = await supabase
+      // 4. Verificar se o perfil foi criado corretamente
+      const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle();
+        .single();
 
-      if (profileCheckError) {
-        console.log('⚠️ Erro ao verificar perfil:', profileCheckError);
-      }
-
-      if (!existingProfile) {
-        console.log('📝 Criando perfil manualmente...');
-        
-        const { data: newProfile, error: createProfileError } = await supabase
+      if (profileError) {
+        console.error('❌ Erro ao verificar perfil:', profileError);
+        // Tentar criar manualmente se não existir
+        const { error: manualProfileError } = await supabase
           .from('user_profiles')
           .insert({
             id: userId,
@@ -122,115 +192,67 @@ export const useCompleteRegistration = () => {
             company: userData.company,
             area: userData.area,
             whatsapp: userData.whatsapp,
-            instance_id: instanceData.instanceId,
-            instance_name: chatbotConfig.nome_instancia
-          })
-          .select()
-          .single();
+            instance_id: instanceId,
+            instance_name: instanceName,
+            connection_status: 'pending',
+            qr_code_required: false
+          });
 
-        if (createProfileError) {
-          console.error('❌ Erro ao criar perfil manualmente:', createProfileError);
-          console.log('⚠️ Continuando sem perfil por enquanto...');
-        } else {
-          console.log('✅ Perfil criado manualmente:', newProfile);
+        if (manualProfileError) {
+          console.error('❌ Erro ao criar perfil manualmente:', manualProfileError);
         }
       } else {
-        console.log('✅ Perfil já existe (criado pelo trigger):', existingProfile);
+        console.log('✅ Perfil verificado:', profileData);
       }
 
-      // 5. Verificar se já existe configuração para evitar duplicata
-      const { data: existingConfig } = await supabase
-        .from('chatbot_configs')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (existingConfig) {
-        console.log('⚠️ Configuração já existe, removendo...');
-        await supabase
-          .from('chatbot_configs')
-          .delete()
-          .eq('user_id', userId);
+      // 5. Salvar configuração do chatbot
+      const configSaved = await saveChatbotConfig(userId, instanceName, instanceId, chatbotConfig);
+      if (!configSaved) {
+        console.warn('⚠️ Configuração do chatbot não foi salva (não crítico)');
       }
 
-      // 6. Criar configuração do chatbot
-      console.log('💾 Salvando configuração do chatbot...');
-      
-      const configData = {
-        user_id: userId,
-        bot_name: chatbotConfig.nome_da_IA,
-        service_type: chatbotConfig.nicho,
-        tone: chatbotConfig.personalidade,
-        evo_instance_id: chatbotConfig.nome_instancia,
-        phone_number: instanceData.phone || null,
-        is_active: true,
-        webhook_url: `https://leowebhook.techcorps.com.br/webhook/${chatbotConfig.nome_instancia}`,
-      };
+      // 6. Tentar criar instância na Evolution (não crítico)
+      await createEvolutionInstance(instanceName);
 
-      const { data: configResult, error: configError } = await supabase
-        .from('chatbot_configs')
-        .insert(configData)
-        .select()
-        .single();
-
-      if (configError) {
-        console.error('❌ Erro ao salvar configuração:', configError);
-        throw new Error('Erro ao salvar configuração do chatbot');
-      }
-
-      console.log('✅ Configuração do chatbot salva:', configResult);
-
-      // 7. Enviar dados para webhook
-      console.log('📤 Enviando dados para webhook...');
-      
-      const webhookData = {
-        ...userData,
-        ...chatbotConfig,
-        instance_id: instanceData.instanceId,
-        user_id: userId,
-        webhook_url: `https://leowebhook.techcorps.com.br/webhook/${chatbotConfig.nome_instancia}`
-      };
-
+      // 7. Enviar dados para webhook (não crítico)
       try {
-        const webhookResponse = await fetch('https://leowebhook.techcorps.com.br/webhook/receber-formulario', {
+        const webhookData = {
+          ...userData,
+          ...chatbotConfig,
+          instance_id: instanceId,
+          instance_name: instanceName,
+          user_id: userId,
+          webhook_url: `https://leowebhook.techcorps.com.br/webhook/${instanceName}`
+        };
+
+        await fetch('https://leowebhook.techcorps.com.br/webhook/receber-formulario', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(webhookData),
         });
 
-        if (webhookResponse.ok) {
-          console.log('✅ Webhook enviado com sucesso');
-        } else {
-          console.warn('⚠️ Webhook com erro, mas continuando...');
-        }
+        console.log('✅ Dados enviados para webhook');
       } catch (webhookError) {
-        console.warn('⚠️ Erro no webhook, mas continuando:', webhookError);
+        console.warn('⚠️ Erro no webhook (não crítico):', webhookError);
       }
 
-      // 8. Sucesso - NÃO fazer login automático
-      console.log('🎉 CONTA CRIADA COM SUCESSO - Login manual disponível');
+      console.log('🎉 Registro completo finalizado com sucesso!');
       
-      toast({
-        title: "🎉 CONTA CRIADA COM SUCESSO!",
-        description: `Bem-vindo, ${userData.name}! Use suas credenciais para fazer login quando quiser.`,
-        duration: 8000,
-      });
-
-      return { success: true, instanceData };
+      return {
+        success: true,
+        instanceData: {
+          instanceName,
+          instanceId,
+          userId
+        }
+      };
 
     } catch (error) {
-      console.error('💥 Erro no processo completo:', error);
-      
-      toast({
-        title: "❌ Erro na Configuração",
-        description: error instanceof Error ? error.message : 'Erro desconhecido ao criar conta',
-        variant: "destructive",
-        duration: 10000,
-      });
-      
-      return { success: false };
+      console.error('💥 Erro geral no registro:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Erro desconhecido' 
+      };
     } finally {
       setLoading(false);
     }

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, CheckCircle, Smartphone, QrCode, Loader2, AlertCircle, Copy, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Smartphone, QrCode, Loader2, AlertCircle, Copy, Eye, EyeOff, SkipForward } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useCompleteRegistration } from '@/hooks/useCompleteRegistration';
 
@@ -22,6 +22,7 @@ const WhatsAppIntegration = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [userCredentials, setUserCredentials] = useState<{email: string, password: string} | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [skippedQR, setSkippedQR] = useState(false);
 
   const userData = location.state?.userData;
   const chatbotConfig = location.state?.chatbotConfig;
@@ -88,13 +89,12 @@ const WhatsAppIntegration = () => {
         
         toast({
           title: "✅ Conta criada com sucesso!",
-          description: "Agora vamos conectar seu WhatsApp...",
+          description: "Agora você pode conectar seu WhatsApp ou pular esta etapa.",
         });
         
-        // Aguardar um pouco e buscar QR Code
-        setTimeout(async () => {
-          setStep(3); // Mostrando QR Code
-          await fetchRealQRCode();
+        // Aguardar um pouco e ir para QR Code opcional
+        setTimeout(() => {
+          setStep(3); // Mostrando QR Code opcional
         }, 2000);
         
       } else {
@@ -106,6 +106,25 @@ const WhatsAppIntegration = () => {
       setErrorMessage(error instanceof Error ? error.message : 'Erro desconhecido');
       setStep(0);
     }
+  };
+
+  const handleConnectionSuccess = () => {
+    setConnectionSuccess(true);
+    setStep(4);
+    toast({
+      title: "🎉 WhatsApp conectado!",
+      description: "Conexão estabelecida com sucesso!",
+    });
+  };
+
+  const handleSkipQR = () => {
+    console.log('⏭️ Usuário optou por pular QR Code');
+    setSkippedQR(true);
+    setStep(4); // Ir direto para finalização
+    toast({
+      title: "⏭️ Configuração concluída!",
+      description: "Você pode conectar o WhatsApp mais tarde no dashboard.",
+    });
   };
 
   const fetchRealQRCode = async () => {
@@ -356,56 +375,47 @@ const WhatsAppIntegration = () => {
         return (
           <div className="text-center space-y-4">
             <QrCode className="h-12 w-12 text-[#FF914C] mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-4">Conecte seu WhatsApp</h3>
+            <h3 className="text-xl font-semibold mb-4">Conectar WhatsApp (Opcional)</h3>
             
-            {qrCodeImage ? (
-              <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block">
-                <img 
-                  src={qrCodeImage} 
-                  alt="QR Code para WhatsApp" 
-                  className="w-48 h-48 mx-auto"
-                  onError={() => {
-                    console.log('❌ Erro ao carregar QR Code');
-                    setErrorMessage("Erro ao carregar QR Code. Tente recarregar.");
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="bg-gray-100 p-4 rounded-lg border-2 border-gray-200 inline-block">
-                <div className="w-48 h-48 flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                </div>
-              </div>
-            )}
-            
-            <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="bg-blue-50 p-4 rounded-lg mb-4">
               <p className="text-sm text-blue-700 mb-2">
-                <strong>Como conectar:</strong>
+                <strong>Esta etapa é opcional!</strong>
               </p>
-              <ol className="text-sm text-blue-700 text-left space-y-1">
-                <li>1. Abra o WhatsApp no seu celular</li>
-                <li>2. Vá em Menu (⋮) → Dispositivos conectados</li>
-                <li>3. Toque em "Conectar dispositivo"</li>
-                <li>4. Escaneie o QR Code acima</li>
-              </ol>
+              <p className="text-xs text-blue-600">
+                Você pode conectar seu WhatsApp agora ou mais tarde no dashboard. 
+                Sua conta já está criada e funcionando.
+              </p>
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Button 
-                onClick={handleManualConnection}
+                onClick={() => setQrCodeImage('generate')}
                 className="w-full bg-green-600 hover:bg-green-700 text-white"
+                disabled={isLoading}
               >
-                Confirmar que conectei o WhatsApp
+                <QrCode className="h-4 w-4 mr-2" />
+                Conectar WhatsApp Agora
               </Button>
               
               <Button 
-                onClick={fetchRealQRCode}
+                onClick={handleSkipQR}
                 variant="outline"
                 className="w-full"
               >
-                Recarregar QR Code
+                <SkipForward className="h-4 w-4 mr-2" />
+                Pular e Conectar Depois
               </Button>
             </div>
+
+            {qrCodeImage === 'generate' && instanceName && (
+              <div className="mt-4">
+                <QRCodeConnection 
+                  instanceName={instanceName}
+                  onConnectionSuccess={handleConnectionSuccess}
+                  onSkip={handleSkipQR}
+                />
+              </div>
+            )}
           </div>
         );
       
@@ -472,17 +482,20 @@ const WhatsAppIntegration = () => {
             )}
 
             <div className="bg-green-50 p-6 rounded-lg mb-6">
-              <h4 className="font-semibold text-green-800 mb-3">Seu chatbot está configurado:</h4>
+              <h4 className="font-semibold text-green-800 mb-3">Sua configuração:</h4>
               <div className="space-y-2 text-sm text-green-700">
                 <p><strong>IA:</strong> {chatbotConfig?.nome_da_IA}</p>
                 <p><strong>Empresa:</strong> {userData?.company}</p>
-                <p><strong>WhatsApp:</strong> Conectado ✅</p>
+                <p><strong>WhatsApp:</strong> {connectionSuccess ? 'Conectado ✅' : skippedQR ? 'Não conectado (pode conectar depois) ⏭️' : 'Verificando...'}</p>
                 <p><strong>Status:</strong> Ativo e funcionando</p>
               </div>
             </div>
             
             <p className="text-gray-600 mb-4">
-              Conta criada com sucesso! Você pode fazer login agora ou mais tarde.
+              {connectionSuccess 
+                ? "Conta criada e WhatsApp conectado com sucesso!" 
+                : "Conta criada com sucesso! Você pode conectar o WhatsApp mais tarde no dashboard."
+              }
             </p>
             
             <div className="space-y-2">
@@ -490,7 +503,7 @@ const WhatsAppIntegration = () => {
                 onClick={handleFinish}
                 className="w-full bg-[#FF914C] hover:bg-[#FF7A2B] text-white"
               >
-                Fazer Login Agora
+                Ir para Dashboard
               </Button>
               
               <Button 
@@ -544,7 +557,9 @@ const WhatsAppIntegration = () => {
               Finalizando Configuração
             </h2>
             <p className="text-gray-600">
-              {step === 0 ? "Escolha sua senha para continuar" : "Criando conta, salvando dados e conectando WhatsApp"}
+              {step === 0 ? "Escolha sua senha para continuar" : 
+               step === 3 ? "Conecte seu WhatsApp (opcional)" :
+               "Criando conta, salvando dados e configurando sistema"}
             </p>
           </div>
 

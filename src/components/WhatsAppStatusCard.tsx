@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, AlertCircle, RefreshCw, Smartphone, QrCode, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertCircle, RefreshCw, Smartphone, QrCode, Loader2, SkipForward } from 'lucide-react';
 import { useEvolutionStatus } from '@/hooks/useEvolutionStatus';
 import QRCodeConnection from '@/components/QRCodeConnection';
 import { useState } from 'react';
@@ -10,9 +10,10 @@ import { useState } from 'react';
 interface WhatsAppStatusCardProps {
   instanceName?: string;
   onConnectionSuccess?: () => void;
+  onSkipConnection?: () => void;
 }
 
-const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess }: WhatsAppStatusCardProps) => {
+const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess, onSkipConnection }: WhatsAppStatusCardProps) => {
   const { status, isLoading, refreshStatus } = useEvolutionStatus(instanceName);
   const [showQRCode, setShowQRCode] = useState(false);
 
@@ -38,7 +39,7 @@ const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess }: WhatsAppStatu
     if (status.isConnected) {
       return 'WhatsApp conectado com sucesso';
     }
-    return 'WhatsApp não conectado. Clique no botão abaixo para conectar via QR Code.';
+    return 'WhatsApp não conectado. Você pode conectar agora via QR Code ou pular esta etapa.';
   };
 
   const handleConnectClick = () => {
@@ -51,6 +52,11 @@ const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess }: WhatsAppStatu
     onConnectionSuccess?.();
   };
 
+  const handleSkipConnection = () => {
+    console.log('⏭️ Usuário optou por pular conexão WhatsApp');
+    onSkipConnection?.();
+  };
+
   const handleRefreshClick = () => {
     refreshStatus();
   };
@@ -60,6 +66,7 @@ const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess }: WhatsAppStatu
       <QRCodeConnection 
         instanceName={instanceName}
         onConnectionSuccess={handleConnectionSuccess}
+        onSkip={() => setShowQRCode(false)}
       />
     );
   }
@@ -117,27 +124,56 @@ const WhatsAppStatusCard = ({ instanceName, onConnectionSuccess }: WhatsAppStatu
               <span className="text-gray-600">Última verificação:</span>
               <span>{status.lastCheck.toLocaleTimeString()}</span>
             </div>
+            {status.canSkipQR && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">QR Code:</span>
+                <span className="text-green-600">Opcional</span>
+              </div>
+            )}
           </div>
         )}
 
         {status && !status.isConnected && instanceName && (
-          <Button 
-            onClick={handleConnectClick}
-            className="w-full bg-green-600 hover:bg-green-700"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Verificando...
-              </>
-            ) : (
-              <>
-                <QrCode className="h-4 w-4 mr-2" />
-                Conectar via QR Code
-              </>
+          <div className="space-y-2">
+            <Button 
+              onClick={handleConnectClick}
+              className="w-full bg-green-600 hover:bg-green-700"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  <QrCode className="h-4 w-4 mr-2" />
+                  Conectar via QR Code
+                </>
+              )}
+            </Button>
+
+            {status.canSkipQR && onSkipConnection && (
+              <Button 
+                onClick={handleSkipConnection}
+                variant="outline"
+                className="w-full"
+                disabled={isLoading}
+              >
+                <SkipForward className="h-4 w-4 mr-2" />
+                Pular Conexão (Conectar Depois)
+              </Button>
             )}
-          </Button>
+          </div>
+        )}
+
+        {status?.isConnected && (
+          <div className="bg-green-50 p-3 rounded-lg">
+            <div className="flex items-center text-green-800">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              <span className="font-medium">WhatsApp Conectado e Funcionando!</span>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
