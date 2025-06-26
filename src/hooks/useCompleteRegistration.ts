@@ -92,34 +92,28 @@ export const useCompleteRegistration = () => {
     }
   };
 
-  const saveUserProfile = async (userData: UserRegistrationData, userId: string, instanceName: string, instanceId: string) => {
-    try {
-      console.log('💾 Salvando perfil do usuário...');
+  const waitForProfileCreation = async (userId: string, maxRetries = 10): Promise<boolean> => {
+    for (let i = 0; i < maxRetries; i++) {
+      console.log(`🔍 Verificando perfil (tentativa ${i + 1}/${maxRetries})...`);
       
-      const { error: profileError } = await supabase
+      const { data: profileData, error } = await supabase
         .from('user_profiles')
-        .insert({
-          id: userId,
-          name: userData.name,
-          email: userData.email,
-          company: userData.company,
-          area: userData.area,
-          whatsapp: userData.whatsapp,
-          instance_name: instanceName,
-          instance_id: instanceId,
-          connection_status: 'pending'
-        });
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-      if (profileError) {
-        console.error('❌ Erro ao salvar perfil:', profileError);
-        throw new Error('Erro ao salvar perfil do usuário');
+      if (!error && profileData) {
+        console.log('✅ Perfil encontrado:', profileData);
+        return true;
       }
 
-      console.log('✅ Perfil salvo com sucesso');
-    } catch (error) {
-      console.error('❌ Erro ao salvar perfil:', error);
-      throw error;
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Aguardar 1 segundo
+      }
     }
+    
+    console.error('❌ Perfil não foi criado pelo trigger após várias tentativas');
+    return false;
   };
 
   const saveChatbotConfig = async (config: ChatbotConfig, userId: string, instanceName: string, instanceId: string) => {
@@ -132,6 +126,7 @@ export const useCompleteRegistration = () => {
           user_id: userId,
           evo_instance_id: instanceName,
           real_instance_id: instanceId,
+          instance_name: instanceName,
           bot_name: config.nome_da_IA,
           service_type: 'WhatsApp',
           tone: config.personalidade,
@@ -161,13 +156,15 @@ export const useCompleteRegistration = () => {
     try {
       console.log('🚀 Iniciando registro completo...');
       
-      // 1. Criar usuário no Supabase Auth
+      // 1. Criar usuário no Supabase Auth com todos os dados no metadata
       console.log('👤 Criando usuário no Supabase...');
       const signUpResult = await signUp(userData.email, userData.password, {
         name: userData.name,
         company: userData.company,
         area: userData.area,
-        whatsapp: userData.whatsapp
+        whatsapp: userData.whatsapp,
+        instance_id: chatbotConfig.nome_instancia, // IMPORTANTE: Instance ID no metadata
+        instance_name: chatbotConfig.nome_instancia
       });
 
       if (signUpResult.error) {
@@ -180,8 +177,17 @@ export const useCompleteRegistration = () => {
 
       const userId = signUpResult.data.user.id;
       console.log('✅ Usuário criado:', userId);
+      console.log('🎯 Instance ID enviado no metadata:', chatbotConfig.nome_instancia);
 
-      // 2. Criar instância na Evolution API
+      // 2. Aguardar o trigger criar o perfil automaticamente
+      console.log('⏳ Aguardando trigger criar perfil...');
+      const profileCreated = await waitForProfileCreation(userId);
+      
+      if (!profileCreated) {
+        throw new Error('Perfil não foi criado automaticamente pelo trigger');
+      }
+
+      // 3. Criar instância na Evolution API
       console.log('🔗 Criando instância na Evolution...');
       const evolutionData = await createEvolutionInstance(chatbotConfig.nome_instancia);
       
@@ -189,13 +195,11 @@ export const useCompleteRegistration = () => {
         throw new Error('Falha ao criar instância na Evolution API');
       }
 
-      // 3. Salvar perfil do usuário
-      await saveUserProfile(userData, userId, chatbotConfig.nome_instancia, evolutionData.instanceId);
-
       // 4. Salvar configuração do chatbot
       await saveChatbotConfig(chatbotConfig, userId, chatbotConfig.nome_instancia, evolutionData.instanceId);
 
       console.log('🎉 Registro completo finalizado com sucesso!');
+      console.log('🎯 Instance ID capturado:', chatbotConfig.nome_instancia);
       
       toast({
         title: "✅ Conta criada com sucesso!",
