@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -54,7 +55,7 @@ export const useCompleteRegistration = () => {
         throw new Error('Usuário não foi criado corretamente');
       }
 
-      // 2. Criar perfil do usuário
+      // 2. Criar perfil do usuário com instance_id e instance_name
       const { error: profileError } = await supabase
         .from('user_profiles')
         .insert({
